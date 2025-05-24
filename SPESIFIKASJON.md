@@ -36,5 +36,6 @@ Programvaren skal la brukeren registrere måltider og symptomer for å kunne spo
 - Tydelige instruksjoner for å registrere data.  
 - Få trinn for å legge inn informasjon.  
 
-**Merknad:**  
-Denne spesifikasjonen fokuserer på funksjonalitet og inkluderer ingen teknologivalg eller implementasjonsdetaljer.
+**Teknologivalg:**
+- Programmeringsspråk: Go
+- Database: SQLite
