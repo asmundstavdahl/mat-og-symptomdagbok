@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Running pre-commit hooks..."
+
+# Check for whitespace errors in staged files
+if ! git diff-index --check --cached HEAD --; then
+    echo "Whitespace errors detected. Please fix them before committing."
+    exit 1
+fi
+
+# Format Go files
+echo "Checking gofmt..."
+unformatted=$(gofmt -l .)
+if [[ -n "$unformatted" ]]; then
+    echo "Formatting Go files..."
+    gofmt -s -w $unformatted
+    git add $unformatted
+    echo "Go files have been formatted. Please review and commit the changes."
+    exit 1
+fi
+
+# Run go vet
+echo "Running go vet..."
+go vet ./...
+
+# Ensure go.mod and go.sum are tidy
+echo "Checking go.mod and go.sum..."
+go mod tidy
+if ! git diff --quiet go.mod go.sum; then
+    echo "go mod tidy resulted in changes. Please run \"go mod tidy && git add go.mod go.sum\""
+    git --no-pager diff -- go.mod go.sum
+    exit 1
+fi
+
+# Build and test using project-local TMPDIR
+echo "Running go build..."
+TMPDIR="$(git rev-parse --show-toplevel)/.tmp"
+export TMPDIR
+mkdir -p "$TMPDIR"
+go build ./...
+
+echo "Running go test..."
+go test ./...
+
+echo "Pre-commit checks passed."
+exit 0

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <title>Rapport</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<h1>Rapport</h1>
+<form id="filter-form">
+    <label for="start">Startdato:</label>
+    <input type="date" id="start" name="start" value="{{ .Start }}" required>
+    <label for="end">Sluttdato:</label>
+    <input type="date" id="end" name="end" value="{{ .End }}" required>
+    <button type="submit">Oppdater</button>
+</form>
+<canvas id="chart" width="800" height="400"></canvas>
+<table border="1" cellpadding="4" cellspacing="0">
+    <thead>
+        <tr><th>Dato</th><th>Måltider</th><th>Symptomer</th></tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+</table>
+<script>
+(async () => {
+    const ctx = document.getElementById('chart').getContext('2d');
+    let chart;
+
+    async function updateChart(start, end) {
+        const params = new URLSearchParams({start, end});
+        const res = await fetch('/report/data?' + params.toString());
+        const data = await res.json();
+        const {days, meals, symptoms} = data;
+        if (chart) {
+            chart.data.labels = days;
+            chart.data.datasets[0].data = meals;
+            chart.data.datasets[1].data = symptoms;
+            chart.update();
+        } else {
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: days,
+                    datasets: [
+                        {label: 'Måltider', data: meals, borderColor: 'blue', fill: false},
+                        {label: 'Symptomer', data: symptoms, borderColor: 'red', fill: false},
+                    ]
+                },
+                options: {responsive: true}
+            });
+        }
+        const tbody = document.getElementById('table-body');
+        tbody.innerHTML = '';
+        for (let i = 0; i < days.length; i++) {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${days[i]}</td><td>${meals[i]}</td><td>${symptoms[i]}</td>`;
+            tbody.appendChild(tr);
+        }
+    }
+
+    const form = document.getElementById('filter-form');
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+        updateChart(form.start.value, form.end.value);
+    });
+    updateChart('{{ .Start }}', '{{ .End }}');
+})();
+</script>
+</body>
+</html>
