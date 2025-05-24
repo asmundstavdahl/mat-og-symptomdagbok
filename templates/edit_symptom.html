@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <title>Rediger symptom</title>
+</head>
+<body>
+<h1>Rediger symptom</h1>
+<form action="/symptoms/update" method="POST">
+    <input type="hidden" name="id" value="{{ .Symptom.ID }}">
+    <label for="description">Symptom:</label>
+    <input type="text" id="description" name="description" list="symptom-options" value="{{ .Symptom.Description }}" required>
+    <datalist id="symptom-options">
+        {{- range .SymptomOptions }}
+        <option value="{{ . }}">
+        {{- end }}
+    </datalist>
+    <label for="timestamp">Tidspunkt:</label>
+    <input type="datetime-local" id="timestamp" name="timestamp" value="{{ .Symptom.InputTime }}" required>
+    <label for="note">Notat:</label>
+    <textarea id="note" name="note">{{ .Symptom.Note }}</textarea>
+    <button type="submit">Oppdater</button>
+</form>
+<p><a href="/">Tilbake</a></p>
+</body>
+</html>

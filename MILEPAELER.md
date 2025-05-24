@@ -2,7 +2,7 @@
 
 | Milepæl | Innhold (krav)                                                                                                     |
 |:--------|:-------------------------------------------------------------------------------------------------------------------|
-| **M0. Prosjektoppsett & arkitektur**<br>• Initialisere repo, CI/CD, dev‑miljø<br>• Velge rammeverk og teknologistack | Teknologivalg【F:SPESIFIKASJON.md†L39-L42】                                                                           |
+| **M0. Prosjektoppsett & arkitektur**<br>• Initialisere repo, dev‑miljø<br>• Sjekk git remote URL for modulnavn<br>• Velge rammeverk og teknologistack | Teknologivalg【F:SPESIFIKASJON.md†L39-L42】                                                                           |
 | **M1. Grunnleggende registrering**<br>• Registrering av måltider<br>• Registrering av symptomer<br>• Tidsstempling<br>• Notatfelt | Krav 1–4【F:SPESIFIKASJON.md†L7-L21】【F:SPESIFIKASJON.md†L15-L20】                                                       |
 | **M2. Datahåndtering & eksport**<br>• Lagring, redigering og sletting av registreringer<br>• Eksport til fil        | Krav 6【F:SPESIFIKASJON.md†L26-L29】                                                                                   |
 | **M3. Rapportering & visualisering**<br>• Generere oversikter for valgte perioder<br>• Visualisering for mønster‑analyse | Krav 5【F:SPESIFIKASJON.md†L22-L25】                                                                                   |

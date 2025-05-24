@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <title>Rediger måltid</title>
+</head>
+<body>
+<h1>Rediger måltid</h1>
+<form action="/meals/update" method="POST">
+    <input type="hidden" name="id" value="{{ .Meal.ID }}">
+    <label for="items">Matvarer:</label>
+    <input type="text" id="items" name="items" list="meal-options" value="{{ .Meal.Items }}" required>
+    <datalist id="meal-options">
+        {{- range .MealOptions }}
+        <option value="{{ . }}">
+        {{- end }}
+    </datalist>
+    <label for="timestamp">Tidspunkt:</label>
+    <input type="datetime-local" id="timestamp" name="timestamp" value="{{ .Meal.InputTime }}" required>
+    <label for="note">Notat:</label>
+    <textarea id="note" name="note">{{ .Meal.Note }}</textarea>
+    <button type="submit">Oppdater</button>
+</form>
+<p><a href="/">Tilbake</a></p>
+</body>
+</html>

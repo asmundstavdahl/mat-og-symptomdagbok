@@ -1,0 +1,19 @@
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# SQLite database files
+*.db
+
+# Vendor directory
+vendor/
+# Go build cache
+.cache/

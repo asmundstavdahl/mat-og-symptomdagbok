@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <title>Mat- og Symptombok</title>
+</head>
+<body>
+<h1>Mat- og Symptombok</h1>
+<p>
+    <a href="/export?format=csv">Eksporter CSV</a> |
+    <a href="/export?format=json">Eksporter JSON</a>
+</p>
+
+<h2>Registrer måltid</h2>
+<form action="/meals" method="POST">
+    <label for="items">Matvarer:</label>
+    <input type="text" id="items" name="items" list="meal-options" required>
+    <datalist id="meal-options">
+        {{- range .MealOptions }}
+        <option value="{{ . }}">
+        {{- end }}
+    </datalist>
+
+    <label for="timestamp">Tidspunkt:</label>
+    <input type="datetime-local" id="timestamp" name="timestamp" value="{{ .Now }}" required>
+
+    <label for="note">Notat:</label>
+    <textarea id="note" name="note"></textarea>
+
+    <button type="submit">Lagre måltid</button>
+</form>
+
+<h2>Registrer symptom</h2>
+<form action="/symptoms" method="POST">
+    <label for="description">Symptom:</label>
+    <input type="text" id="description" name="description" list="symptom-options" required>
+    <datalist id="symptom-options">
+        {{- range .SymptomOptions }}
+        <option value="{{ . }}">
+        {{- end }}
+    </datalist>
+
+    <label for="timestamp">Tidspunkt:</label>
+    <input type="datetime-local" id="timestamp" name="timestamp" value="{{ .Now }}" required>
+
+    <label for="note">Notat:</label>
+    <textarea id="note" name="note"></textarea>
+
+    <button type="submit">Lagre symptom</button>
+</form>
+
+<h2>Registrerte måltider</h2>
+{{ if .Meals }}
+<table border="1" cellpadding="4" cellspacing="0">
+  <tr><th>Tid</th><th>Matvarer</th><th>Notat</th><th>Rediger</th><th>Slett</th></tr>
+  {{- range .Meals }}
+  <tr>
+    <td>{{ .DisplayTime }}</td>
+    <td>{{ .Items }}</td>
+    <td>{{ .Note }}</td>
+    <td><a href="/meals/edit?id={{ .ID }}">Rediger</a></td>
+    <td>
+      <form action="/meals/delete" method="POST" style="display:inline">
+        <input type="hidden" name="id" value="{{ .ID }}">
+        <button type="submit">Slett</button>
+      </form>
+    </td>
+  </tr>
+  {{- end }}
+</table>
+{{ else }}
+<p>Ingen måltider funnet.</p>
+{{ end }}
+
+<h2>Registrerte symptomer</h2>
+{{ if .Symptoms }}
+<table border="1" cellpadding="4" cellspacing="0">
+  <tr><th>Tid</th><th>Symptom</th><th>Notat</th><th>Rediger</th><th>Slett</th></tr>
+  {{- range .Symptoms }}
+  <tr>
+    <td>{{ .DisplayTime }}</td>
+    <td>{{ .Description }}</td>
+    <td>{{ .Note }}</td>
+    <td><a href="/symptoms/edit?id={{ .ID }}">Rediger</a></td>
+    <td>
+      <form action="/symptoms/delete" method="POST" style="display:inline">
+        <input type="hidden" name="id" value="{{ .ID }}">
+        <button type="submit">Slett</button>
+      </form>
+    </td>
+  </tr>
+  {{- end }}
+</table>
+{{ else }}
+<p>Ingen symptomer funnet.</p>
+{{ end }}
+</body>
+</html>
