@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/csv"
 	"encoding/json"
+	"flag"
 	"html/template"
 	"log"
 	"net/http"
@@ -51,6 +52,9 @@ type Symptom struct {
 }
 
 func main() {
+	port := flag.Int("port", 8080, "Port to run the server on")
+	flag.Parse()
+
 	var err error
 	db, err = sql.Open("sqlite3", "data.db")
 	if err != nil {
@@ -81,8 +85,8 @@ func main() {
 	http.HandleFunc("/report", reportPageHandler)
 	http.HandleFunc("/report/data", reportDataHandler)
 
-	log.Println("Server starting on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	log.Printf("Server starting on :%d\n", *port)
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", *port), nil); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
 }
