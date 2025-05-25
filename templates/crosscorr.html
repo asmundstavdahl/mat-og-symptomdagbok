@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <title>Krysskorrelasjon mellom måltider og symptomer</title>
+    <script src="/static/plotly.min.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        #plot { width: 100%; max-width: 700px; height: 400px; }
+    </style>
+</head>
+<body>
+    <h1>Krysskorrelasjon mellom måltider og symptomer</h1>
+    <form id="rangeForm">
+        <label for="start">Startdato:</label>
+        <input type="date" id="start" name="start" value="{{.Start}}">
+        <label for="end">Sluttdato:</label>
+        <input type="date" id="end" name="end" value="{{.End}}">
+        <button type="submit">Oppdater</button>
+    </form>
+    <div id="plot"></div>
+    <p>
+        Krysskorrelasjon viser hvor mye antall måltider og symptomer henger sammen med et tidsforskyvning (lag). 
+        Positiv lag betyr at symptomer kommer etter måltider, negativ lag betyr at symptomer kommer før måltider.
+    </p>
+    <script>
+    document.getElementById('rangeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        updatePlot();
+    });
+
+    function updatePlot() {
+        const start = document.getElementById('start').value;
+        const end = document.getElementById('end').value;
+        fetch(`/crosscorr/data?start=${start}&end=${end}`)
+            .then(resp => resp.json())
+            .then(data => {
+                const trace = {
+                    x: data.lags,
+                    y: data.values,
+                    type: 'bar',
+                    marker: {color: 'steelblue'},
+                };
+                const layout = {
+                    title: 'Krysskorrelasjon (lag)',
+                    xaxis: {title: 'Lag (dager)'},
+                    yaxis: {title: 'Korrelasjon', range: [-1, 1]},
+                };
+                Plotly.newPlot('plot', [trace], layout, {responsive: true});
+            });
+    }
+    updatePlot();
+    </script>
+</body>
+</html>
