@@ -52,12 +52,13 @@ func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	layout := "2006-01-02"
-	startDate, err := time.Parse(layout, start)
+	// startDate and endDate are not used, so don't declare them
+	_, err := time.Parse(layout, start)
 	if err != nil {
 		http.Error(w, "ugyldig startdato", http.StatusBadRequest)
 		return
 	}
-	endDate, err := time.Parse(layout, end)
+	_, err = time.Parse(layout, end)
 	if err != nil {
 		http.Error(w, "ugyldig sluttdato", http.StatusBadRequest)
 		return
