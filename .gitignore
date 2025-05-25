@@ -3,3 +3,4 @@
 .cache
 data.db
 .tmp
+.aider*
