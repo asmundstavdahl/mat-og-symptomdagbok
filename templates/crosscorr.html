@@ -25,8 +25,8 @@
     </form>
     <div id="plot"></div>
     <p>
-        Diagrammet viser hvor mange måltider som etterfølges av et symptom etter et visst antall dager.<br>
-        X-aksen viser antall dager fra et måltid til neste symptom.<br>
+        Diagrammet viser hvor mange måltider som etterfølges av et symptom etter et visst antall minutter.<br>
+        X-aksen viser antall minutter (i 15-minutters intervaller) fra et måltid til neste symptom.<br>
         Y-aksen viser antall måltider med denne forsinkelsen.
     </p>
     <script>
@@ -50,15 +50,18 @@
                     document.getElementById('plot').innerHTML = "<em>Ingen data for valgt periode.</em>";
                     return;
                 }
+                // Gjør om bin-indeks til minutter
+                const binSize = 15;
+                const xLabels = data.bins.map(b => `${b*binSize}-${(b+1)*binSize} min`);
                 const trace = {
-                    x: data.bins,
+                    x: xLabels,
                     y: data.counts,
                     type: 'bar',
                     marker: {color: 'steelblue'},
                 };
                 const layout = {
-                    title: 'Dager fra måltid til neste symptom',
-                    xaxis: {title: 'Dager til neste symptom', dtick: 1},
+                    title: 'Minutter fra måltid til neste symptom (15-minutters intervaller)',
+                    xaxis: {title: 'Minutter til neste symptom', tickangle: -45},
                     yaxis: {title: 'Antall måltider'},
                 };
                 Plotly.newPlot('plot', [trace], layout, {responsive: true});

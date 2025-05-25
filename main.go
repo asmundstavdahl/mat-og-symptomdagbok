@@ -107,13 +107,13 @@ func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 		sympTimes = append(sympTimes, t)
 	}
 
-	// For hvert måltid, finn første symptom etterpå og regn ut antall dager
+	// For hvert måltid, finn første symptom etterpå og regn ut antall minutter
 	var delays []float64
 	for _, meal := range mealTimes {
 		minDelay := -1.0
 		for _, symp := range sympTimes {
 			if symp.After(meal) {
-				delay := symp.Sub(meal).Hours() / 24.0
+				delay := symp.Sub(meal).Minutes()
 				if minDelay < 0 || delay < minDelay {
 					minDelay = delay
 				}
@@ -124,11 +124,12 @@ func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Bygg histogram: grupper forsinkelse i hele dager (0, 1, 2, ...)
+	// Bygg histogram: grupper forsinkelse i 15-minutters intervaller
+	binSize := 15.0 // minutter
 	hist := make(map[int]int)
 	for _, d := range delays {
-		day := int(math.Floor(d))
-		hist[day]++
+		bin := int(math.Floor(d / binSize))
+		hist[bin]++
 	}
 	// Sorter bins
 	var bins []int
