@@ -173,7 +173,6 @@ func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 			denomX += (xs[i] - mx) * (xs[i] - mx)
 			denomY += (ys[i] - my) * (ys[i] - my)
 		}
-		denom := (denomX * denomY)
 		corr := 0.0
 		if denomX > 0 && denomY > 0 {
 			corr = num / (math.Sqrt(denomX) * math.Sqrt(denomY))
