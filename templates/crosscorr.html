@@ -38,8 +38,16 @@
         const start = document.getElementById('start').value;
         const end = document.getElementById('end').value;
         fetch(`/crosscorr/data?start=${start}&end=${end}`)
-            .then(resp => resp.json())
+            .then(resp => {
+                if (!resp.ok) throw new Error("Ingen data");
+                return resp.json();
+            })
             .then(data => {
+                // Sjekk at det faktisk finnes data
+                if (!data || !data.lags || !data.values || data.lags.length === 0) {
+                    document.getElementById('plot').innerHTML = "<em>Ingen data for valgt periode.</em>";
+                    return;
+                }
                 const trace = {
                     x: data.lags,
                     y: data.values,
@@ -52,9 +60,13 @@
                     yaxis: {title: 'Korrelasjon', range: [-1, 1]},
                 };
                 Plotly.newPlot('plot', [trace], layout, {responsive: true});
+            })
+            .catch(err => {
+                document.getElementById('plot').innerHTML = "<em>Kunne ikke hente eller vise data.</em>";
             });
     }
-    updatePlot();
+    // Kjør først etter at DOM er lastet
+    window.addEventListener('DOMContentLoaded', updatePlot);
     </script>
 </body>
 </html>
