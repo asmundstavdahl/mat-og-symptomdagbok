@@ -112,6 +112,18 @@ func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 		meals = append(meals, float64(mealCounts[dayStr]))
 		symptoms = append(symptoms, float64(sympCounts[dayStr]))
 	}
+	// Hvis ingen data, returner tomt svar
+	if len(meals) == 0 || len(symptoms) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(struct {
+			Lags   []int     `json:"lags"`
+			Values []float64 `json:"values"`
+		}{
+			Lags:   []int{},
+			Values: []float64{},
+		})
+		return
+	}
 
 	// Compute cross-correlation for lags -7 to +7
 	maxLag := 7
@@ -163,15 +175,14 @@ func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		denom := (denomX * denomY)
 		corr := 0.0
-		if denom > 0 {
-			corr = num / (float64(len(xs)) * (denomX/float64(len(xs))) * (denomY/float64(len(xs))))
+		if denomX > 0 && denomY > 0 {
 			corr = num / (math.Sqrt(denomX) * math.Sqrt(denomY))
 		}
 		results = append(results, CorrResult{Lag: lag, Value: corr})
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(struct {
-		Lags  []int     `json:"lags"`
+		Lags   []int     `json:"lags"`
 		Values []float64 `json:"values"`
 	}{
 		Lags: func() []int {
