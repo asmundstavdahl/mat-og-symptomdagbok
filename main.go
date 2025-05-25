@@ -113,7 +113,23 @@ func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 		symptoms = append(symptoms, float64(sympCounts[dayStr]))
 	}
 	// Hvis ingen data, returner tomt svar
-	if len(meals) == 0 || len(symptoms) == 0 {
+	// Sjekk at det finnes minst én dag med minst én måltid ELLER symptom
+	hasData := false
+	for _, v := range meals {
+		if v > 0 {
+			hasData = true
+			break
+		}
+	}
+	if !hasData {
+		for _, v := range symptoms {
+			if v > 0 {
+				hasData = true
+				break
+			}
+		}
+	}
+	if !hasData {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(struct {
 			Lags   []int     `json:"lags"`

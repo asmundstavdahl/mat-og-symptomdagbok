@@ -69,7 +69,7 @@
             .catch(err => {
                 document.getElementById('plot').innerHTML = "<em>Kunne ikke hente eller vise data.</em>";
                 // For feilsøking:
-                // document.getElementById('plot').innerHTML += "<br><small>" + err + "</small>";
+                document.getElementById('plot').innerHTML += "<br><small>" + err + "</small>";
             });
     }
     // Kjør først etter at DOM er lastet
