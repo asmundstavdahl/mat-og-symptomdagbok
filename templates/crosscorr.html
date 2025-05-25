@@ -15,7 +15,7 @@
         <a href="/report">Rapport</a> |
         <a href="/crosscorr"><strong>Krysskorrelasjon</strong></a>
     </nav>
-    <h1>Krysskorrelasjon mellom måltider og symptomer</h1>
+    <h1>Forsinkelse fra måltid til neste symptom</h1>
     <form id="rangeForm">
         <label for="start">Startdato:</label>
         <input type="date" id="start" name="start" value="{{.Start}}">
@@ -25,8 +25,9 @@
     </form>
     <div id="plot"></div>
     <p>
-        Krysskorrelasjon viser hvor mye antall måltider og symptomer henger sammen med et tidsforskyvning (lag). 
-        Positiv lag betyr at symptomer kommer etter måltider, negativ lag betyr at symptomer kommer før måltider.
+        Diagrammet viser hvor mange måltider som etterfølges av et symptom etter et visst antall dager.<br>
+        X-aksen viser antall dager fra et måltid til neste symptom.<br>
+        Y-aksen viser antall måltider med denne forsinkelsen.
     </p>
     <script>
     document.getElementById('rangeForm').addEventListener('submit', function(e) {
@@ -45,34 +46,28 @@
                 return resp.json();
             })
             .then(data => {
-                // Sjekk at det faktisk finnes data
-                if (!data || !Array.isArray(data.lags) || !Array.isArray(data.values) || data.lags.length === 0) {
+                if (!data || !Array.isArray(data.bins) || !Array.isArray(data.counts) || data.bins.length === 0) {
                     document.getElementById('plot').innerHTML = "<em>Ingen data for valgt periode.</em>";
                     return;
                 }
-                // Prøv å tvinge tall
-                const lags = data.lags.map(Number);
-                const values = data.values.map(Number);
                 const trace = {
-                    x: lags,
-                    y: values,
+                    x: data.bins,
+                    y: data.counts,
                     type: 'bar',
                     marker: {color: 'steelblue'},
                 };
                 const layout = {
-                    title: 'Krysskorrelasjon (lag)',
-                    xaxis: {title: 'Lag (dager)'},
-                    yaxis: {title: 'Korrelasjon', range: [-1, 1]},
+                    title: 'Dager fra måltid til neste symptom',
+                    xaxis: {title: 'Dager til neste symptom', dtick: 1},
+                    yaxis: {title: 'Antall måltider'},
                 };
                 Plotly.newPlot('plot', [trace], layout, {responsive: true});
             })
             .catch(err => {
                 document.getElementById('plot').innerHTML = "<em>Kunne ikke hente eller vise data.</em>";
-                // For feilsøking:
                 document.getElementById('plot').innerHTML += "<br><small>" + err + "</small>";
             });
     }
-    // Kjør først etter at DOM er lastet
     window.addEventListener('DOMContentLoaded', function() {
         updatePlot();
     });

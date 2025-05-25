@@ -40,7 +40,10 @@ func crossCorrPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// crossCorrDataHandler returns JSON data of cross-correlation between meals and symptoms.
+/*
+crossCorrDataHandler returns JSON data for a plot showing the distribution of
+tiden (i dager) fra hvert måltid til neste symptom etterpå i valgt periode.
+*/
 func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 	start := r.URL.Query().Get("start")
 	end := r.URL.Query().Get("end")
@@ -60,160 +63,91 @@ func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get daily meal counts
+	// Hent alle måltider og symptomer i perioden, sortert stigende
 	mealRows, err := db.Query(
-		"SELECT DATE(timestamp) as day, COUNT(*) "+
-			"FROM meals WHERE DATE(timestamp) BETWEEN ? AND ? "+
-			"GROUP BY day ORDER BY day", start, end)
+		"SELECT timestamp FROM meals WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
 	if err != nil {
-		http.Error(w, "kunne ikke hente rapportdata", http.StatusInternalServerError)
+		http.Error(w, "kunne ikke hente måltider", http.StatusInternalServerError)
 		return
 	}
 	defer mealRows.Close()
-	mealCounts := make(map[string]int)
+	var mealTimes []time.Time
 	for mealRows.Next() {
-		var day string
-		var count int
-		if err := mealRows.Scan(&day, &count); err != nil {
+		var ts string
+		if err := mealRows.Scan(&ts); err != nil {
 			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
 			return
 		}
-		mealCounts[day] = count
+		t, err := time.Parse(time.RFC3339, ts)
+		if err != nil {
+			continue
+		}
+		mealTimes = append(mealTimes, t)
 	}
 
-	// Get daily symptom counts
 	sympRows, err := db.Query(
-		"SELECT DATE(timestamp) as day, COUNT(*) "+
-			"FROM symptoms WHERE DATE(timestamp) BETWEEN ? AND ? "+
-			"GROUP BY day ORDER BY day", start, end)
+		"SELECT timestamp FROM symptoms WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
 	if err != nil {
-		http.Error(w, "kunne ikke hente rapportdata", http.StatusInternalServerError)
+		http.Error(w, "kunne ikke hente symptomer", http.StatusInternalServerError)
 		return
 	}
 	defer sympRows.Close()
-	sympCounts := make(map[string]int)
+	var sympTimes []time.Time
 	for sympRows.Next() {
-		var day string
-		var count int
-		if err := sympRows.Scan(&day, &count); err != nil {
+		var ts string
+		if err := sympRows.Scan(&ts); err != nil {
 			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
 			return
 		}
-		sympCounts[day] = count
-	}
-
-	// Build aligned slices
-	var days []string
-	var meals []float64
-	var symptoms []float64
-	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
-		dayStr := d.Format(layout)
-		days = append(days, dayStr)
-		meals = append(meals, float64(mealCounts[dayStr]))
-		symptoms = append(symptoms, float64(sympCounts[dayStr]))
-	}
-	// Hvis ingen data, returner tomt svar
-	// Sjekk at det finnes minst én dag med minst én måltid ELLER symptom
-	hasData := false
-	for _, v := range meals {
-		if v > 0 {
-			hasData = true
-			break
-		}
-	}
-	if !hasData {
-		for _, v := range symptoms {
-			if v > 0 {
-				hasData = true
-				break
-			}
-		}
-	}
-	if !hasData {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(struct {
-			Lags   []int     `json:"lags"`
-			Values []float64 `json:"values"`
-		}{
-			Lags:   []int{},
-			Values: []float64{},
-		})
-		return
-	}
-
-	// Compute cross-correlation for lags -7 to +7
-	maxLag := 7
-	type CorrResult struct {
-		Lag   int     `json:"lag"`
-		Value float64 `json:"value"`
-	}
-	var results []CorrResult
-	n := len(meals)
-	mean := func(x []float64) float64 {
-		s := 0.0
-		for _, v := range x {
-			s += v
-		}
-		return s / float64(len(x))
-	}
-	std := func(x []float64, m float64) float64 {
-		s := 0.0
-		for _, v := range x {
-			s += (v - m) * (v - m)
-		}
-		return (s / float64(len(x)))
-	}
-	meanMeals := mean(meals)
-	meanSymptoms := mean(symptoms)
-	_ = std(meals, meanMeals) // stdMeals (unused)
-	_ = std(symptoms, meanSymptoms) // stdSymptoms (unused)
-	for lag := -maxLag; lag <= maxLag; lag++ {
-		var xs, ys []float64
-		for i := 0; i < n; i++ {
-			j := i + lag
-			if j < 0 || j >= n {
-				continue
-			}
-			xs = append(xs, meals[i])
-			ys = append(ys, symptoms[j])
-		}
-		if len(xs) == 0 {
-			results = append(results, CorrResult{Lag: lag, Value: 0})
+		t, err := time.Parse(time.RFC3339, ts)
+		if err != nil {
 			continue
 		}
-		mx := mean(xs)
-		my := mean(ys)
-		var num, denomX, denomY float64
-		for i := range xs {
-			num += (xs[i] - mx) * (ys[i] - my)
-			denomX += (xs[i] - mx) * (xs[i] - mx)
-			denomY += (ys[i] - my) * (ys[i] - my)
-		}
-		corr := 0.0
-		if denomX > 0 && denomY > 0 {
-			corr = num / (math.Sqrt(denomX) * math.Sqrt(denomY))
-		}
-		results = append(results, CorrResult{Lag: lag, Value: corr})
+		sympTimes = append(sympTimes, t)
 	}
+
+	// For hvert måltid, finn første symptom etterpå og regn ut antall dager
+	var delays []float64
+	for _, meal := range mealTimes {
+		minDelay := -1.0
+		for _, symp := range sympTimes {
+			if symp.After(meal) {
+				delay := symp.Sub(meal).Hours() / 24.0
+				if minDelay < 0 || delay < minDelay {
+					minDelay = delay
+				}
+			}
+		}
+		if minDelay >= 0 {
+			delays = append(delays, minDelay)
+		}
+	}
+
+	// Bygg histogram: grupper forsinkelse i hele dager (0, 1, 2, ...)
+	hist := make(map[int]int)
+	for _, d := range delays {
+		day := int(math.Floor(d))
+		hist[day]++
+	}
+	// Sorter bins
+	var bins []int
+	for k := range hist {
+		bins = append(bins, k)
+	}
+	sort.Ints(bins)
+	var counts []int
+	for _, b := range bins {
+		counts = append(counts, hist[b])
+	}
+
+	// Returner som JSON
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(struct {
-		Lags   []int     `json:"lags"`
-		Values []float64 `json:"values"`
+		Bins   []int `json:"bins"`
+		Counts []int `json:"counts"`
 	}{
-		Lags: func() []int {
-			lags := make([]int, 0, len(results))
-			for _, r := range results {
-				lags = append(lags, r.Lag)
-			}
-			return lags
-		}(),
-		Values: func() []float64 {
-			vals := make([]float64, 0, len(results))
-			for _, r := range results {
-				vals = append(vals, r.Value)
-			}
-			return vals
-		}(),
+		Bins:   bins,
+		Counts: counts,
 	})
 }
 
