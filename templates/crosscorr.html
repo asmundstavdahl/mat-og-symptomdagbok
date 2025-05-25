@@ -39,18 +39,23 @@
         const end = document.getElementById('end').value;
         fetch(`/crosscorr/data?start=${start}&end=${end}`)
             .then(resp => {
-                if (!resp.ok) throw new Error("Ingen data");
+                if (!resp.ok) {
+                    throw new Error("Ingen data");
+                }
                 return resp.json();
             })
             .then(data => {
                 // Sjekk at det faktisk finnes data
-                if (!data || !data.lags || !data.values || data.lags.length === 0) {
+                if (!data || !Array.isArray(data.lags) || !Array.isArray(data.values) || data.lags.length === 0) {
                     document.getElementById('plot').innerHTML = "<em>Ingen data for valgt periode.</em>";
                     return;
                 }
+                // Prøv å tvinge tall
+                const lags = data.lags.map(Number);
+                const values = data.values.map(Number);
                 const trace = {
-                    x: data.lags,
-                    y: data.values,
+                    x: lags,
+                    y: values,
                     type: 'bar',
                     marker: {color: 'steelblue'},
                 };
@@ -63,10 +68,14 @@
             })
             .catch(err => {
                 document.getElementById('plot').innerHTML = "<em>Kunne ikke hente eller vise data.</em>";
+                // For feilsøking:
+                // document.getElementById('plot').innerHTML += "<br><small>" + err + "</small>";
             });
     }
     // Kjør først etter at DOM er lastet
-    window.addEventListener('DOMContentLoaded', updatePlot);
+    window.addEventListener('DOMContentLoaded', function() {
+        updatePlot();
+    });
     </script>
 </body>
 </html>
