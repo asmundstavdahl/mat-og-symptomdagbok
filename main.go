@@ -137,7 +137,7 @@ func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	meanMeals := mean(meals)
 	meanSymptoms := mean(symptoms)
-	stdMeals := std(meals, meanMeals)
+	_ = std(meals, meanMeals) // stdMeals (unused)
 	stdSymptoms := std(symptoms, meanSymptoms)
 	for lag := -maxLag; lag <= maxLag; lag++ {
 		var xs, ys []float64
