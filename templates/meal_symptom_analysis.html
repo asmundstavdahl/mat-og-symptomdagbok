@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <title>Måltid til Symptom Analyse</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<h1>Måltid til Symptom Analyse</h1>
+<p><a href="/">Tilbake til hovedside</a> | <a href="/report">Rapport</a></p>
+
+<div>
+    <label for="start-date">Startdato:</label>
+    <input type="date" id="start-date" value="{{ .StartDate }}">
+    
+    <label for="end-date">Sluttdato:</label>
+    <input type="date" id="end-date" value="{{ .EndDate }}">
+    
+    <button onclick="updateChart()">Oppdater</button>
+</div>
+
+<h2>Måltider til Symptomer - Tidsforskjell</h2>
+<canvas id="mealSymptomChart" width="800" height="400"></canvas>
+
+<h2>Måltid til Symptom Detaljer</h2>
+<table id="mealSymptomTable" border="1" cellpadding="4" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Måltid</th>
+            <th>Tidspunkt</th>
+            <th>Neste Symptom</th>
+            <th>Timer til Symptom</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Data will be populated by JavaScript -->
+    </tbody>
+</table>
+
+<script>
+let mealSymptomChart;
+
+function updateChart() {
+    const startDate = document.getElementById('start-date').value;
+    const endDate = document.getElementById('end-date').value;
+    
+    fetch(`/report/meal-symptom-data?start=${startDate}&end=${endDate}`)
+        .then(response => response.json())
+        .then(data => {
+            renderMealSymptomChart(data);
+            renderMealSymptomTable(data);
+        })
+        .catch(error => {
+            console.error('Error fetching meal-symptom data:', error);
+        });
+}
+
+function renderMealSymptomChart(data) {
+    const ctx = document.getElementById('mealSymptomChart').getContext('2d');
+    
+    if (mealSymptomChart) {
+        mealSymptomChart.destroy();
+    }
+    
+    const labels = data.map(item => `${item.meal_items} (${item.meal_timestamp})`);
+    const timeDiffs = data.map(item => item.time_diff_hours || 0);
+    const colors = data.map(item => item.next_symptom_id ? '#87CEEB' : '#FF6B6B');
+    
+    mealSymptomChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Timer til neste symptom',
+                data: timeDiffs,
+                backgroundColor: colors,
+                borderColor: colors.map(color => color === '#87CEEB' ? '#4682B4' : '#DC143C'),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: {
+                legend: {
+                    display: true
+                },
+                title: {
+                    display: false
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Timer til neste symptom'
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Måltider'
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderMealSymptomTable(data) {
+    const tbody = document.querySelector('#mealSymptomTable tbody');
+    tbody.innerHTML = '';
+    
+    data.forEach(item => {
+        const row = tbody.insertRow();
+        row.insertCell(0).textContent = item.meal_items;
+        row.insertCell(1).textContent = item.meal_timestamp;
+        row.insertCell(2).textContent = item.next_symptom_desc || 'Ingen symptom funnet';
+        row.insertCell(3).textContent = item.time_diff_hours ? item.time_diff_hours.toFixed(1) : 'N/A';
+    });
+}
+
+// Load initial data
+document.addEventListener('DOMContentLoaded', function() {
+    updateChart();
+});
+</script>
+</body>
+</html>

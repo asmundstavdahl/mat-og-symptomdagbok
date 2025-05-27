@@ -7,6 +7,7 @@
 </head>
 <body>
 <h1>Rapport</h1>
+<p><a href="/">Tilbake til hovedside</a> | <a href="/meal-symptom-analysis">Måltid til Symptom Analyse</a></p>
 <form id="filter-form">
     <label for="start">Startdato:</label>
     <input type="date" id="start" name="start" value="{{ .Start }}" required>
@@ -15,6 +16,7 @@
     <button type="submit">Oppdater</button>
 </form>
 <canvas id="chart" width="800" height="400"></canvas>
+
 <table border="1" cellpadding="4" cellspacing="0">
     <thead>
         <tr><th>Dato</th><th>Måltider</th><th>Symptomer</th></tr>
@@ -27,6 +29,7 @@
     let chart;
 
     async function updateChart(start, end) {
+        // Update the original chart
         const params = new URLSearchParams({start, end});
         const res = await fetch('/report/data?' + params.toString());
         const data = await res.json();

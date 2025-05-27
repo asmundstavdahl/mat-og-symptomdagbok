@@ -85,6 +85,8 @@ func main() {
 	http.HandleFunc("/export", exportHandler)
 	http.HandleFunc("/report", reportPageHandler)
 	http.HandleFunc("/report/data", reportDataHandler)
+	http.HandleFunc("/report/meal-symptom-data", mealSymptomDataHandler)
+	http.HandleFunc("/meal-symptom-analysis", mealSymptomAnalysisHandler)
 
 	log.Printf("Server starting on :%d\n", *port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", *port), nil); err != nil {
@@ -182,6 +184,134 @@ func reportDataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// MealSymptomData represents the time difference between a meal and the next symptom
+type MealSymptomData struct {
+	MealID          int     `json:"meal_id"`
+	MealItems       string  `json:"meal_items"`
+	MealTimestamp   string  `json:"meal_timestamp"`
+	NextSymptomID   *int    `json:"next_symptom_id"`
+	NextSymptomDesc *string `json:"next_symptom_desc"`
+	TimeDiffHours   *float64 `json:"time_diff_hours"`
+}
+
+// mealSymptomDataHandler returns JSON data showing time differences between meals and next symptoms
+func mealSymptomDataHandler(w http.ResponseWriter, r *http.Request) {
+	start := r.URL.Query().Get("start")
+	end := r.URL.Query().Get("end")
+	if start == "" || end == "" {
+		http.Error(w, "start og end må spesifiseres", http.StatusBadRequest)
+		return
+	}
+
+	// Get all meals in the date range
+	mealRows, err := db.Query(
+		"SELECT id, items, timestamp FROM meals WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp",
+		start, end)
+	if err != nil {
+		http.Error(w, "kunne ikke hente måltider", http.StatusInternalServerError)
+		return
+	}
+	defer mealRows.Close()
+
+	var meals []struct {
+		ID        int
+		Items     string
+		Timestamp time.Time
+	}
+
+	for mealRows.Next() {
+		var m struct {
+			ID        int
+			Items     string
+			Timestamp time.Time
+		}
+		var ts string
+		if err := mealRows.Scan(&m.ID, &m.Items, &ts); err != nil {
+			http.Error(w, "feil ved scanning av måltider", http.StatusInternalServerError)
+			return
+		}
+		t, err := time.Parse(time.RFC3339, ts)
+		if err != nil {
+			http.Error(w, "ugyldig tidspunkt for måltid", http.StatusInternalServerError)
+			return
+		}
+		m.Timestamp = t
+		meals = append(meals, m)
+	}
+
+	// Get all symptoms in the date range (extended to catch symptoms after meals)
+	endDate, err := time.Parse("2006-01-02", end)
+	if err != nil {
+		http.Error(w, "ugyldig sluttdato", http.StatusBadRequest)
+		return
+	}
+	extendedEnd := endDate.AddDate(0, 0, 7).Format("2006-01-02") // Look 7 days ahead
+
+	symptomRows, err := db.Query(
+		"SELECT id, description, timestamp FROM symptoms WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp",
+		start, extendedEnd)
+	if err != nil {
+		http.Error(w, "kunne ikke hente symptomer", http.StatusInternalServerError)
+		return
+	}
+	defer symptomRows.Close()
+
+	var symptoms []struct {
+		ID          int
+		Description string
+		Timestamp   time.Time
+	}
+
+	for symptomRows.Next() {
+		var s struct {
+			ID          int
+			Description string
+			Timestamp   time.Time
+		}
+		var ts string
+		if err := symptomRows.Scan(&s.ID, &s.Description, &ts); err != nil {
+			http.Error(w, "feil ved scanning av symptomer", http.StatusInternalServerError)
+			return
+		}
+		t, err := time.Parse(time.RFC3339, ts)
+		if err != nil {
+			http.Error(w, "ugyldig tidspunkt for symptom", http.StatusInternalServerError)
+			return
+		}
+		s.Timestamp = t
+		symptoms = append(symptoms, s)
+	}
+
+	// Calculate time differences between meals and next symptoms
+	var result []MealSymptomData
+	for _, meal := range meals {
+		data := MealSymptomData{
+			MealID:        meal.ID,
+			MealItems:     meal.Items,
+			MealTimestamp: meal.Timestamp.Format("2006-01-02 15:04"),
+		}
+
+		// Find the next symptom after this meal
+		for _, symptom := range symptoms {
+			if symptom.Timestamp.After(meal.Timestamp) {
+				data.NextSymptomID = &symptom.ID
+				data.NextSymptomDesc = &symptom.Description
+				timeDiff := symptom.Timestamp.Sub(meal.Timestamp).Hours()
+				data.TimeDiffHours = &timeDiff
+				break
+			}
+		}
+
+		result = append(result, data)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		http.Error(w, "feil ved encoding av JSON", http.StatusInternalServerError)
+		return
+	}
+}
+
 func migrate(db *sql.DB) error {
 	entries, err := os.ReadDir("migrations")
 	if err != nil {
@@ -258,6 +388,37 @@ func getAllSymptoms() ([]Symptom, error) {
 		symptoms = append(symptoms, s)
 	}
 	return symptoms, nil
+}
+
+func mealSymptomAnalysisHandler(w http.ResponseWriter, r *http.Request) {
+	// Get date range from query parameters or use defaults
+	startDate := r.URL.Query().Get("start")
+	endDate := r.URL.Query().Get("end")
+	
+	if startDate == "" {
+		startDate = time.Now().AddDate(0, 0, -7).Format("2006-01-02")
+	}
+	if endDate == "" {
+		endDate = time.Now().Format("2006-01-02")
+	}
+	
+	data := struct {
+		StartDate string
+		EndDate   string
+	}{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+	
+	tmpl, err := template.ParseFiles("templates/meal_symptom_analysis.html")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	
+	if err := tmpl.Execute(w, data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
