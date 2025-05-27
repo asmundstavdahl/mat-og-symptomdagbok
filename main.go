@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -25,6 +26,131 @@ type templateData struct {
 	Now            string
 	Meals          []Meal
 	Symptoms       []Symptom
+}
+
+// crossCorrPageHandler displays the cross-correlation UI.
+func crossCorrPageHandler(w http.ResponseWriter, r *http.Request) {
+	now := time.Now()
+	data := struct{ Start, End string }{
+		Start: now.AddDate(0, 0, -14).Format("2006-01-02"),
+		End:   now.Format("2006-01-02"),
+	}
+	if err := templates.ExecuteTemplate(w, "crosscorr.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+/*
+crossCorrDataHandler returns JSON data for a plot showing the distribution of
+tiden (i dager) fra hvert måltid til neste symptom etterpå i valgt periode.
+*/
+func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
+	start := r.URL.Query().Get("start")
+	end := r.URL.Query().Get("end")
+	if start == "" || end == "" {
+		http.Error(w, "start og end må spesifiseres", http.StatusBadRequest)
+		return
+	}
+	layout := "2006-01-02"
+	// startDate and endDate are not used, so don't declare them
+	_, err := time.Parse(layout, start)
+	if err != nil {
+		http.Error(w, "ugyldig startdato", http.StatusBadRequest)
+		return
+	}
+	_, err = time.Parse(layout, end)
+	if err != nil {
+		http.Error(w, "ugyldig sluttdato", http.StatusBadRequest)
+		return
+	}
+
+	// Hent alle måltider og symptomer i perioden, sortert stigende
+	mealRows, err := db.Query(
+		"SELECT timestamp FROM meals WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
+	if err != nil {
+		http.Error(w, "kunne ikke hente måltider", http.StatusInternalServerError)
+		return
+	}
+	defer mealRows.Close()
+	var mealTimes []time.Time
+	for mealRows.Next() {
+		var ts string
+		if err := mealRows.Scan(&ts); err != nil {
+			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
+			return
+		}
+		t, err := time.Parse(time.RFC3339, ts)
+		if err != nil {
+			continue
+		}
+		mealTimes = append(mealTimes, t)
+	}
+
+	sympRows, err := db.Query(
+		"SELECT timestamp FROM symptoms WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
+	if err != nil {
+		http.Error(w, "kunne ikke hente symptomer", http.StatusInternalServerError)
+		return
+	}
+	defer sympRows.Close()
+	var sympTimes []time.Time
+	for sympRows.Next() {
+		var ts string
+		if err := sympRows.Scan(&ts); err != nil {
+			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
+			return
+		}
+		t, err := time.Parse(time.RFC3339, ts)
+		if err != nil {
+			continue
+		}
+		sympTimes = append(sympTimes, t)
+	}
+
+	// For hvert måltid, finn første symptom etterpå og regn ut antall minutter
+	var delays []float64
+	for _, meal := range mealTimes {
+		minDelay := -1.0
+		for _, symp := range sympTimes {
+			if symp.After(meal) {
+				delay := symp.Sub(meal).Minutes()
+				if minDelay < 0 || delay < minDelay {
+					minDelay = delay
+				}
+			}
+		}
+		if minDelay >= 0 {
+			delays = append(delays, minDelay)
+		}
+	}
+
+	// Bygg histogram: grupper forsinkelse i 15-minutters intervaller
+	binSize := 15.0 // minutter
+	hist := make(map[int]int)
+	for _, d := range delays {
+		bin := int(math.Floor(d / binSize))
+		hist[bin]++
+	}
+	// Sorter bins
+	var bins []int
+	for k := range hist {
+		bins = append(bins, k)
+	}
+	sort.Ints(bins)
+	var counts []int
+	for _, b := range bins {
+		counts = append(counts, hist[b])
+	}
+
+	// Returner som JSON
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Bins   []int `json:"bins"`
+		Counts []int `json:"counts"`
+	}{
+		Bins:   bins,
+		Counts: counts,
+	})
 }
 
 var (
@@ -72,6 +198,9 @@ func main() {
 		log.Fatalf("parsing templates error: %v", err)
 	}
 
+	// Serve static files (for plotly.min.js)
+	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/meals", mealsHandler)
 	http.HandleFunc("/symptoms", symptomsHandler)
@@ -87,6 +216,8 @@ func main() {
 	http.HandleFunc("/report/data", reportDataHandler)
 	http.HandleFunc("/report/meal-symptom-data", mealSymptomDataHandler)
 	http.HandleFunc("/meal-symptom-analysis", mealSymptomAnalysisHandler)
+	http.HandleFunc("/crosscorr", crossCorrPageHandler)
+	http.HandleFunc("/crosscorr/data", crossCorrDataHandler)
 
 	log.Printf("Server starting on :%d\n", *port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", *port), nil); err != nil {
@@ -186,11 +317,11 @@ func reportDataHandler(w http.ResponseWriter, r *http.Request) {
 
 // MealSymptomData represents the time difference between a meal and the next symptom
 type MealSymptomData struct {
-	MealID          int     `json:"meal_id"`
-	MealItems       string  `json:"meal_items"`
-	MealTimestamp   string  `json:"meal_timestamp"`
-	NextSymptomID   *int    `json:"next_symptom_id"`
-	NextSymptomDesc *string `json:"next_symptom_desc"`
+	MealID          int      `json:"meal_id"`
+	MealItems       string   `json:"meal_items"`
+	MealTimestamp   string   `json:"meal_timestamp"`
+	NextSymptomID   *int     `json:"next_symptom_id"`
+	NextSymptomDesc *string  `json:"next_symptom_desc"`
 	TimeDiffHours   *float64 `json:"time_diff_hours"`
 }
 
@@ -394,14 +525,14 @@ func mealSymptomAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 	// Get date range from query parameters or use defaults
 	startDate := r.URL.Query().Get("start")
 	endDate := r.URL.Query().Get("end")
-	
+
 	if startDate == "" {
 		startDate = time.Now().AddDate(0, 0, -7).Format("2006-01-02")
 	}
 	if endDate == "" {
 		endDate = time.Now().Format("2006-01-02")
 	}
-	
+
 	data := struct {
 		StartDate string
 		EndDate   string
@@ -409,13 +540,13 @@ func mealSymptomAnalysisHandler(w http.ResponseWriter, r *http.Request) {
 		StartDate: startDate,
 		EndDate:   endDate,
 	}
-	
+
 	tmpl, err := template.ParseFiles("templates/meal_symptom_analysis.html")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	
+
 	if err := tmpl.Execute(w, data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

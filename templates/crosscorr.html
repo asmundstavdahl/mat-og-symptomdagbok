@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <title>Krysskorrelasjon mellom måltider og symptomer</title>
+    <script src="/static/plotly.min.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 2em; }
+        #plot { width: 100%; max-width: 700px; height: 400px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/">Hjem</a> |
+        <a href="/report">Rapport</a> |
+        <a href="/crosscorr"><strong>Krysskorrelasjon</strong></a>
+    </nav>
+    <h1>Forsinkelse fra måltid til neste symptom</h1>
+    <form id="rangeForm">
+        <label for="start">Startdato:</label>
+        <input type="date" id="start" name="start" value="{{.Start}}">
+        <label for="end">Sluttdato:</label>
+        <input type="date" id="end" name="end" value="{{.End}}">
+        <button type="submit">Oppdater</button>
+    </form>
+    <div id="plot"></div>
+    <p>
+        Diagrammet viser hvor mange måltider som etterfølges av et symptom etter et visst antall minutter.<br>
+        X-aksen viser antall minutter (i 15-minutters intervaller) fra et måltid til neste symptom.<br>
+        Y-aksen viser antall måltider med denne forsinkelsen.
+    </p>
+    <script>
+    document.getElementById('rangeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        updatePlot();
+    });
+
+    function updatePlot() {
+        const start = document.getElementById('start').value;
+        const end = document.getElementById('end').value;
+        fetch(`/crosscorr/data?start=${start}&end=${end}`)
+            .then(resp => {
+                if (!resp.ok) {
+                    throw new Error("Ingen data");
+                }
+                return resp.json();
+            })
+            .then(data => {
+                if (!data || !Array.isArray(data.bins) || !Array.isArray(data.counts) || data.bins.length === 0) {
+                    document.getElementById('plot').innerHTML = "<em>Ingen data for valgt periode.</em>";
+                    return;
+                }
+                // Gjør om bin-indeks til minutter
+                const binSize = 15;
+                const xLabels = data.bins.map(b => `${b*binSize}-${(b+1)*binSize} min`);
+                const trace = {
+                    x: xLabels,
+                    y: data.counts,
+                    type: 'bar',
+                    marker: {color: 'steelblue'},
+                };
+                const layout = {
+                    title: 'Minutter fra måltid til neste symptom (15-minutters intervaller)',
+                    xaxis: {title: 'Minutter til neste symptom', tickangle: -45},
+                    yaxis: {title: 'Antall måltider'},
+                };
+                Plotly.newPlot('plot', [trace], layout, {responsive: true});
+            })
+            .catch(err => {
+                document.getElementById('plot').innerHTML = "<em>Kunne ikke hente eller vise data.</em>";
+                document.getElementById('plot').innerHTML += "<br><small>" + err + "</small>";
+            });
+    }
+    window.addEventListener('DOMContentLoaded', function() {
+        updatePlot();
+    });
+    </script>
+</body>
+</html>
