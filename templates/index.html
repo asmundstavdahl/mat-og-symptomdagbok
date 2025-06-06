@@ -2,104 +2,176 @@
 <html lang="no">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mat- og Symptombok</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <nav>
-    <a href="/">Hjem</a> |
-    <a href="/report">Rapport</a> |
-    <a href="/crosscorr">Krysskorrelasjon</a>
+    <div class="container">
+        <a href="/" class="active">🏠 Hjem</a>
+        <a href="/report">📊 Rapport</a>
+        <a href="/crosscorr">🔗 Krysskorrelasjon</a>
+        <a href="/meal-symptom-analysis">📈 Analyse</a>
+    </div>
 </nav>
-<h1>Mat- og Symptombok</h1>
-<p>
-    <a href="/export?format=csv">Eksporter CSV</a> |
-    <a href="/export?format=json">Eksporter JSON</a> |
-    <a href="/report">Rapport</a> |
-    <a href="/meal-symptom-analysis">Måltid til Symptom Analyse</a>
-</p>
 
-<h2>Registrer måltid</h2>
-<form action="/meals" method="POST">
-    <label for="items">Matvarer:</label>
-    <input type="text" id="items" name="items" list="meal-options" required>
-    <datalist id="meal-options">
-        {{- range .MealOptions }}
-        <option value="{{ . }}">
-        {{- end }}
-    </datalist>
+<div class="container">
+    <h1>🍽️ Mat- og Symptombok</h1>
+    
+    <div class="quick-actions">
+        <h3 class="card-title">Hurtighandlinger</h3>
+        <a href="/export?format=csv" class="btn btn-outline">📄 Eksporter CSV</a>
+        <a href="/export?format=json" class="btn btn-outline">📋 Eksporter JSON</a>
+        <a href="/report" class="btn btn-secondary">📊 Vis rapport</a>
+        <a href="/meal-symptom-analysis" class="btn btn-secondary">📈 Detaljert analyse</a>
+    </div>
 
-    <label for="timestamp">Tidspunkt:</label>
-    <input type="datetime-local" id="timestamp" name="timestamp" value="{{ .Now }}" required>
+    <div class="grid grid-2">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">🍽️ Registrer måltid</h2>
+            </div>
+            <form action="/meals" method="POST">
+                <div class="form-group">
+                    <label for="items">Matvarer</label>
+                    <input type="text" id="items" name="items" list="meal-options" required placeholder="Skriv inn matvarer...">
+                    <datalist id="meal-options">
+                        {{- range .MealOptions }}
+                        <option value="{{ . }}">
+                        {{- end }}
+                    </datalist>
+                </div>
 
-    <label for="note">Notat:</label>
-    <textarea id="note" name="note"></textarea>
+                <div class="form-group">
+                    <label for="meal-timestamp">Tidspunkt</label>
+                    <input type="datetime-local" id="meal-timestamp" name="timestamp" value="{{ .Now }}" required>
+                </div>
 
-    <button type="submit">Lagre måltid</button>
-</form>
+                <div class="form-group">
+                    <label for="meal-note">Notat (valgfritt)</label>
+                    <textarea id="meal-note" name="note" placeholder="Legg til notater om måltidet..."></textarea>
+                </div>
 
-<h2>Registrer symptom</h2>
-<form action="/symptoms" method="POST">
-    <label for="description">Symptom:</label>
-    <input type="text" id="description" name="description" list="symptom-options" required>
-    <datalist id="symptom-options">
-        {{- range .SymptomOptions }}
-        <option value="{{ . }}">
-        {{- end }}
-    </datalist>
+                <button type="submit" class="btn btn-primary w-full">💾 Lagre måltid</button>
+            </form>
+        </div>
 
-    <label for="timestamp">Tidspunkt:</label>
-    <input type="datetime-local" id="timestamp" name="timestamp" value="{{ .Now }}" required>
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">🤒 Registrer symptom</h2>
+            </div>
+            <form action="/symptoms" method="POST">
+                <div class="form-group">
+                    <label for="description">Symptom</label>
+                    <input type="text" id="description" name="description" list="symptom-options" required placeholder="Beskriv symptomet...">
+                    <datalist id="symptom-options">
+                        {{- range .SymptomOptions }}
+                        <option value="{{ . }}">
+                        {{- end }}
+                    </datalist>
+                </div>
 
-    <label for="note">Notat:</label>
-    <textarea id="note" name="note"></textarea>
+                <div class="form-group">
+                    <label for="symptom-timestamp">Tidspunkt</label>
+                    <input type="datetime-local" id="symptom-timestamp" name="timestamp" value="{{ .Now }}" required>
+                </div>
 
-    <button type="submit">Lagre symptom</button>
-</form>
+                <div class="form-group">
+                    <label for="symptom-note">Notat (valgfritt)</label>
+                    <textarea id="symptom-note" name="note" placeholder="Legg til notater om symptomet..."></textarea>
+                </div>
 
-<h2>Registrerte måltider</h2>
-{{ if .Meals }}
-<table border="1" cellpadding="4" cellspacing="0">
-  <tr><th>Tid</th><th>Matvarer</th><th>Notat</th><th>Rediger</th><th>Slett</th></tr>
-  {{- range .Meals }}
-  <tr>
-    <td>{{ .DisplayTime }}</td>
-    <td>{{ .Items }}</td>
-    <td>{{ .Note }}</td>
-    <td><a href="/meals/edit?id={{ .ID }}">Rediger</a></td>
-    <td>
-      <form action="/meals/delete" method="POST" style="display:inline">
-        <input type="hidden" name="id" value="{{ .ID }}">
-        <button type="submit">Slett</button>
-      </form>
-    </td>
-  </tr>
-  {{- end }}
-</table>
-{{ else }}
-<p>Ingen måltider funnet.</p>
-{{ end }}
+                <button type="submit" class="btn btn-primary w-full">💾 Lagre symptom</button>
+            </form>
+        </div>
+    </div>
 
-<h2>Registrerte symptomer</h2>
-{{ if .Symptoms }}
-<table border="1" cellpadding="4" cellspacing="0">
-  <tr><th>Tid</th><th>Symptom</th><th>Notat</th><th>Rediger</th><th>Slett</th></tr>
-  {{- range .Symptoms }}
-  <tr>
-    <td>{{ .DisplayTime }}</td>
-    <td>{{ .Description }}</td>
-    <td>{{ .Note }}</td>
-    <td><a href="/symptoms/edit?id={{ .ID }}">Rediger</a></td>
-    <td>
-      <form action="/symptoms/delete" method="POST" style="display:inline">
-        <input type="hidden" name="id" value="{{ .ID }}">
-        <button type="submit">Slett</button>
-      </form>
-    </td>
-  </tr>
-  {{- end }}
-</table>
-{{ else }}
-<p>Ingen symptomer funnet.</p>
-{{ end }}
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">🍽️ Registrerte måltider</h2>
+        </div>
+        {{ if .Meals }}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>📅 Tid</th>
+                        <th>🍽️ Matvarer</th>
+                        <th>📝 Notat</th>
+                        <th>⚙️ Handlinger</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{- range .Meals }}
+                    <tr>
+                        <td>{{ .DisplayTime }}</td>
+                        <td><strong>{{ .Items }}</strong></td>
+                        <td>{{ if .Note }}{{ .Note }}{{ else }}<em>Ingen notat</em>{{ end }}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="/meals/edit?id={{ .ID }}" class="btn btn-sm btn-secondary">✏️ Rediger</a>
+                                <form action="/meals/delete" method="POST">
+                                    <input type="hidden" name="id" value="{{ .ID }}">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Er du sikker på at du vil slette dette måltidet?')">🗑️ Slett</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {{- end }}
+                </tbody>
+            </table>
+        </div>
+        {{ else }}
+        <div class="empty-state">
+            <h3>Ingen måltider registrert</h3>
+            <p>Start med å registrere ditt første måltid ovenfor.</p>
+        </div>
+        {{ end }}
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">🤒 Registrerte symptomer</h2>
+        </div>
+        {{ if .Symptoms }}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>📅 Tid</th>
+                        <th>🤒 Symptom</th>
+                        <th>📝 Notat</th>
+                        <th>⚙️ Handlinger</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{- range .Symptoms }}
+                    <tr>
+                        <td>{{ .DisplayTime }}</td>
+                        <td><strong>{{ .Description }}</strong></td>
+                        <td>{{ if .Note }}{{ .Note }}{{ else }}<em>Ingen notat</em>{{ end }}</td>
+                        <td>
+                            <div class="action-buttons">
+                                <a href="/symptoms/edit?id={{ .ID }}" class="btn btn-sm btn-secondary">✏️ Rediger</a>
+                                <form action="/symptoms/delete" method="POST">
+                                    <input type="hidden" name="id" value="{{ .ID }}">
+                                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Er du sikker på at du vil slette dette symptomet?')">🗑️ Slett</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {{- end }}
+                </tbody>
+            </table>
+        </div>
+        {{ else }}
+        <div class="empty-state">
+            <h3>Ingen symptomer registrert</h3>
+            <p>Start med å registrere ditt første symptom ovenfor.</p>
+        </div>
+        {{ end }}
+    </div>
+</div>
 </body>
 </html>
