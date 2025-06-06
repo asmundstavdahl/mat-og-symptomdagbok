@@ -2,33 +2,62 @@
 <html lang="no">
 <head>
     <meta charset="UTF-8">
-    <title>Krysskorrelasjon mellom måltider og symptomer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Krysskorrelasjon - Mat- og Symptombok</title>
+    <link rel="stylesheet" href="/static/style.css">
     <script src="/static/plotly.min.js"></script>
-    <style>
-        body { font-family: sans-serif; margin: 2em; }
-        #plot { width: 100%; max-width: 700px; height: 400px; }
-    </style>
 </head>
 <body>
-    <nav>
-        <a href="/">Hjem</a> |
-        <a href="/report">Rapport</a> |
-        <a href="/crosscorr"><strong>Krysskorrelasjon</strong></a>
-    </nav>
-    <h1>Forsinkelse fra måltid til neste symptom</h1>
-    <form id="rangeForm">
-        <label for="start">Startdato:</label>
-        <input type="date" id="start" name="start" value="{{.Start}}">
-        <label for="end">Sluttdato:</label>
-        <input type="date" id="end" name="end" value="{{.End}}">
-        <button type="submit">Oppdater</button>
-    </form>
-    <div id="plot"></div>
-    <p>
-        Diagrammet viser hvor mange måltider som etterfølges av et symptom etter et visst antall minutter.<br>
-        X-aksen viser antall minutter (i 15-minutters intervaller) fra et måltid til neste symptom.<br>
-        Y-aksen viser antall måltider med denne forsinkelsen.
-    </p>
+<nav>
+    <div class="container">
+        <a href="/">🏠 Hjem</a>
+        <a href="/report">📊 Rapport</a>
+        <a href="/crosscorr" class="active">🔗 Krysskorrelasjon</a>
+        <a href="/meal-symptom-analysis">📈 Analyse</a>
+    </div>
+</nav>
+
+<div class="container">
+    <h1>🔗 Krysskorrelasjon</h1>
+    <p class="text-center">Forsinkelse fra måltid til neste symptom</p>
+    
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">🔍 Filtrer tidsperiode</h2>
+        </div>
+        <form id="rangeForm" class="filter-form">
+            <div class="form-group">
+                <label for="start">Startdato</label>
+                <input type="date" id="start" name="start" value="{{.Start}}">
+            </div>
+            <div class="form-group">
+                <label for="end">Sluttdato</label>
+                <input type="date" id="end" name="end" value="{{.End}}">
+            </div>
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">🔄 Oppdater analyse</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="chart-container">
+        <h2>📊 Tidsfordeling: Måltid til symptom</h2>
+        <div id="plot" style="width: 100%; height: 500px;"></div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">ℹ️ Forklaring</h2>
+        </div>
+        <p><strong>Hva viser diagrammet?</strong></p>
+        <ul style="margin-left: 2rem; margin-bottom: 1rem;">
+            <li>Diagrammet viser hvor mange måltider som etterfølges av et symptom etter et visst antall minutter</li>
+            <li><strong>X-aksen:</strong> Antall minutter (i 15-minutters intervaller) fra et måltid til neste symptom</li>
+            <li><strong>Y-aksen:</strong> Antall måltider med denne forsinkelsen</li>
+        </ul>
+        <p><em>Dette kan hjelpe deg med å identifisere mønstre i når symptomer oppstår etter måltider.</em></p>
+    </div>
+</div>
     <script>
     document.getElementById('rangeForm').addEventListener('submit', function(e) {
         e.preventDefault();

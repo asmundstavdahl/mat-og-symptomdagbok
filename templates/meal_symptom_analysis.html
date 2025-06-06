@@ -2,40 +2,76 @@
 <html lang="no">
 <head>
     <meta charset="UTF-8">
-    <title>Måltid til Symptom Analyse</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Måltid til Symptom Analyse - Mat- og Symptombok</title>
+    <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-<h1>Måltid til Symptom Analyse</h1>
-<p><a href="/">Tilbake til hovedside</a> | <a href="/report">Rapport</a></p>
+<nav>
+    <div class="container">
+        <a href="/">🏠 Hjem</a>
+        <a href="/report">📊 Rapport</a>
+        <a href="/crosscorr">🔗 Krysskorrelasjon</a>
+        <a href="/meal-symptom-analysis" class="active">📈 Analyse</a>
+    </div>
+</nav>
 
-<div>
-    <label for="start-date">Startdato:</label>
-    <input type="date" id="start-date" value="{{ .StartDate }}">
+<div class="container">
+    <h1>📈 Måltid til Symptom Analyse</h1>
     
-    <label for="end-date">Sluttdato:</label>
-    <input type="date" id="end-date" value="{{ .EndDate }}">
-    
-    <button onclick="updateChart()">Oppdater</button>
+    <div class="quick-actions">
+        <a href="/" class="btn btn-outline">🏠 Tilbake til hovedside</a>
+        <a href="/report" class="btn btn-secondary">📊 Vis rapport</a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">🔍 Filtrer tidsperiode</h2>
+        </div>
+        <div class="filter-form">
+            <div class="form-group">
+                <label for="start-date">Startdato</label>
+                <input type="date" id="start-date" value="{{ .StartDate }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="end-date">Sluttdato</label>
+                <input type="date" id="end-date" value="{{ .EndDate }}">
+            </div>
+            
+            <div class="form-group">
+                <button onclick="updateChart()" class="btn btn-primary">🔄 Oppdater analyse</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <h2>📊 Måltider til Symptomer - Tidsforskjell</h2>
+        <canvas id="mealSymptomChart" width="800" height="400"></canvas>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">📋 Detaljert oversikt</h2>
+        </div>
+        <div class="table-container">
+            <table id="mealSymptomTable">
+                <thead>
+                    <tr>
+                        <th>🍽️ Måltid</th>
+                        <th>📅 Tidspunkt</th>
+                        <th>🤒 Neste Symptom</th>
+                        <th>⏱️ Timer til Symptom</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data will be populated by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
-
-<h2>Måltider til Symptomer - Tidsforskjell</h2>
-<canvas id="mealSymptomChart" width="800" height="400"></canvas>
-
-<h2>Måltid til Symptom Detaljer</h2>
-<table id="mealSymptomTable" border="1" cellpadding="4" cellspacing="0">
-    <thead>
-        <tr>
-            <th>Måltid</th>
-            <th>Tidspunkt</th>
-            <th>Neste Symptom</th>
-            <th>Timer til Symptom</th>
-        </tr>
-    </thead>
-    <tbody>
-        <!-- Data will be populated by JavaScript -->
-    </tbody>
-</table>
 
 <script>
 let mealSymptomChart;

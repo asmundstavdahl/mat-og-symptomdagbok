@@ -2,32 +2,71 @@
 <html lang="no">
 <head>
     <meta charset="UTF-8">
-    <title>Rapport</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rapport - Mat- og Symptombok</title>
+    <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <nav>
-    <a href="/">Hjem</a> |
-    <a href="/report"><strong>Rapport</strong></a> |
-    <a href="/crosscorr">Krysskorrelasjon</a>
+    <div class="container">
+        <a href="/">🏠 Hjem</a>
+        <a href="/report" class="active">📊 Rapport</a>
+        <a href="/crosscorr">🔗 Krysskorrelasjon</a>
+        <a href="/meal-symptom-analysis">📈 Analyse</a>
+    </div>
 </nav>
-<h1>Rapport</h1>
-<p><a href="/">Tilbake til hovedside</a> | <a href="/meal-symptom-analysis">Måltid til Symptom Analyse</a></p>
-<form id="filter-form">
-    <label for="start">Startdato:</label>
-    <input type="date" id="start" name="start" value="{{ .Start }}" required>
-    <label for="end">Sluttdato:</label>
-    <input type="date" id="end" name="end" value="{{ .End }}" required>
-    <button type="submit">Oppdater</button>
-</form>
-<canvas id="chart" width="800" height="400"></canvas>
 
-<table border="1" cellpadding="4" cellspacing="0">
-    <thead>
-        <tr><th>Dato</th><th>Måltider</th><th>Symptomer</th></tr>
-    </thead>
-    <tbody id="table-body"></tbody>
-</table>
+<div class="container">
+    <h1>📊 Rapport</h1>
+    
+    <div class="quick-actions">
+        <a href="/" class="btn btn-outline">🏠 Tilbake til hovedside</a>
+        <a href="/meal-symptom-analysis" class="btn btn-secondary">📈 Måltid til Symptom Analyse</a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">🔍 Filtrer data</h2>
+        </div>
+        <form id="filter-form" class="filter-form">
+            <div class="form-group">
+                <label for="start">Startdato</label>
+                <input type="date" id="start" name="start" value="{{ .Start }}" required>
+            </div>
+            <div class="form-group">
+                <label for="end">Sluttdato</label>
+                <input type="date" id="end" name="end" value="{{ .End }}" required>
+            </div>
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">🔄 Oppdater rapport</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="chart-container">
+        <h2>📈 Måltider og symptomer over tid</h2>
+        <canvas id="chart" width="800" height="400"></canvas>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">📋 Detaljert oversikt</h2>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>📅 Dato</th>
+                        <th>🍽️ Måltider</th>
+                        <th>🤒 Symptomer</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
 <script>
 (async () => {
     const ctx = document.getElementById('chart').getContext('2d');
