@@ -834,13 +834,48 @@ type DetailedTimeSeriesData struct {
 	SymptomSeriesByType map[string][]TimeSeriesPoint `json:"symptom_series_by_type"`
 }
 
+/*
+Førsteordens lavpassfilter for tidsserier.
+y[n] = alpha * x[n] + (1-alpha) * y[n-1]
+alpha = dt / (tau + dt)
+tau: tidskonstant i minutter
+dt: tidsoppløsning i minutter (her alltid 1)
+*/
+func lowPassFilter(series []int, tau float64) []float64 {
+	if tau <= 0 {
+		// Returner originalen som float64
+		out := make([]float64, len(series))
+		for i, v := range series {
+			out[i] = float64(v)
+		}
+		return out
+	}
+	alpha := 1.0 / (tau + 1.0)
+	out := make([]float64, len(series))
+	if len(series) == 0 {
+		return out
+	}
+	out[0] = float64(series[0])
+	for i := 1; i < len(series); i++ {
+		out[i] = alpha*float64(series[i]) + (1.0-alpha)*out[i-1]
+	}
+	return out
+}
+
 // timeSeriesDataHandler returns JSON data for time series visualization
 func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 	start := r.URL.Query().Get("start")
 	end := r.URL.Query().Get("end")
+	tauStr := r.URL.Query().Get("tau")
 	if start == "" || end == "" {
 		http.Error(w, "start og end må spesifiseres", http.StatusBadRequest)
 		return
+	}
+	tau := 10.0 // default 10 minutter
+	if tauStr != "" {
+		if parsed, err := strconv.ParseFloat(tauStr, 64); err == nil && parsed > 0 {
+			tau = parsed
+		}
 	}
 
 	layout := "2006-01-02"
@@ -933,6 +968,10 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 	mealSeriesByType := make(map[string][]TimeSeriesPoint)
 	symptomSeriesByType := make(map[string][]TimeSeriesPoint)
 
+	// For filtrering: lag også "rå" int-serier for hver type
+	mealRawSeries := make(map[string][]int)
+	symptomRawSeries := make(map[string][]int)
+
 	current := startDate
 	for !current.After(endDate) {
 		// For each day, generate 24*60 = 1440 minutes
@@ -943,40 +982,81 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 
 				// Generate series for each meal type
 				for mealType := range mealsByType {
-					if mealSeriesByType[mealType] == nil {
-						mealSeriesByType[mealType] = []TimeSeriesPoint{}
+					if mealRawSeries[mealType] == nil {
+						mealRawSeries[mealType] = []int{}
 					}
-					
 					value := 0
 					if mealMinutesByType[mealType][timeStr] {
 						value = 1
 					}
-
-					mealSeriesByType[mealType] = append(mealSeriesByType[mealType], TimeSeriesPoint{
-						Time:  timeStr,
-						Value: value,
-					})
+					mealRawSeries[mealType] = append(mealRawSeries[mealType], value)
 				}
 
 				// Generate series for each symptom type
 				for symptomType := range symptomsByType {
-					if symptomSeriesByType[symptomType] == nil {
-						symptomSeriesByType[symptomType] = []TimeSeriesPoint{}
+					if symptomRawSeries[symptomType] == nil {
+						symptomRawSeries[symptomType] = []int{}
 					}
-					
 					value := 0
 					if symptomMinutesByType[symptomType][timeStr] {
 						value = 1
 					}
-
-					symptomSeriesByType[symptomType] = append(symptomSeriesByType[symptomType], TimeSeriesPoint{
-						Time:  timeStr,
-						Value: value,
-					})
+					symptomRawSeries[symptomType] = append(symptomRawSeries[symptomType], value)
 				}
 			}
 		}
 		current = current.AddDate(0, 0, 1)
+	}
+
+	// Filtrer seriene
+	for mealType, raw := range mealRawSeries {
+		filtered := lowPassFilter(raw, tau)
+		series := make([]TimeSeriesPoint, len(filtered))
+		// Rekonstruer tidspunktene
+		current := startDate
+		idx := 0
+		for !current.After(endDate) {
+			for hour := 0; hour < 24; hour++ {
+				for minute := 0; minute < 60; minute++ {
+					if idx >= len(filtered) {
+						break
+					}
+					timePoint := time.Date(current.Year(), current.Month(), current.Day(), hour, minute, 0, 0, current.Location())
+					timeStr := timePoint.Format("2006-01-02 15:04")
+					series[idx] = TimeSeriesPoint{
+						Time:  timeStr,
+						Value: int(filtered[idx]*1000) / 1000.0, // 3 desimaler
+					}
+					idx++
+				}
+			}
+			current = current.AddDate(0, 0, 1)
+		}
+		mealSeriesByType[mealType] = series
+	}
+	for symptomType, raw := range symptomRawSeries {
+		filtered := lowPassFilter(raw, tau)
+		series := make([]TimeSeriesPoint, len(filtered))
+		current := startDate
+		idx := 0
+		for !current.After(endDate) {
+			for hour := 0; hour < 24; hour++ {
+				for minute := 0; minute < 60; minute++ {
+					if idx >= len(filtered) {
+						break
+					}
+					timePoint := time.Date(current.Year(), current.Month(), current.Day(), hour, minute, 0, 0, current.Location())
+					timeStr := timePoint.Format("2006-01-02 15:04")
+					series[idx] = TimeSeriesPoint{
+						Time:  timeStr,
+						Value: int(filtered[idx]*1000) / 1000.0,
+					}
+					idx++
+				}
+			}
+			current = current.AddDate(0, 0, 1)
+		}
+		symptomSeriesByType[symptomType] = series
 	}
 
 	result := DetailedTimeSeriesData{

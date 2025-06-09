@@ -34,6 +34,10 @@
             <label for="end-date">Sluttdato:</label>
             <input type="date" id="end-date" value="{{ .End }}">
         </div>
+        <div class="form-group">
+            <label for="tau">Tidskonstant (minutter, lavpassfilter):</label>
+            <input type="number" id="tau" min="1" max="240" value="10" style="width: 80px;">
+        </div>
         <button id="update-chart" class="btn btn-primary">🔄 Oppdater diagram</button>
     </div>
 
@@ -67,6 +71,7 @@ const symptomColors = ['#DC143C', '#FF69B4', '#8B0000', '#B22222', '#CD5C5C', '#
 function updateCharts() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
+    const tau = document.getElementById('tau').value;
     
     if (!startDate || !endDate) {
         alert('Vennligst velg både start- og sluttdato');
@@ -78,7 +83,7 @@ function updateCharts() {
     document.getElementById('symptom-chart').innerHTML = '<div style="text-align: center; padding: 50px;">Laster data...</div>';
     document.getElementById('combined-chart').innerHTML = '<div style="text-align: center; padding: 50px;">Laster data...</div>';
     
-    fetch(`/timeseries/data?start=${startDate}&end=${endDate}`)
+    fetch(`/timeseries/data?start=${startDate}&end=${endDate}&tau=${tau}`)
         .then(response => response.json())
         .then(data => {
             // Create meal chart with separate traces for each meal type
