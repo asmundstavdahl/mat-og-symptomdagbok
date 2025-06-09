@@ -808,7 +808,7 @@ func exportHandler(w http.ResponseWriter, r *http.Request) {
 func timeSeriesPageHandler(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	data := struct{ Start, End string }{
-		Start: now.AddDate(0, 0, -7).Format("2006-01-02"),
+		Start: now.AddDate(0, 0, -30).Format("2006-01-02"),
 		End:   now.Format("2006-01-02"),
 	}
 	if err := templates.ExecuteTemplate(w, "timeseries.html", data); err != nil {
