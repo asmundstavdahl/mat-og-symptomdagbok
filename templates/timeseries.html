@@ -39,27 +39,31 @@
 
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">🍽️ Måltider - Tidsserie</h2>
+            <h2 class="card-title">🍽️ Måltider - Tidsserie (etter type)</h2>
         </div>
-        <div id="meal-chart" style="height: 400px;"></div>
+        <div id="meal-chart" style="height: 500px;"></div>
     </div>
 
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">🤒 Symptomer - Tidsserie</h2>
+            <h2 class="card-title">🤒 Symptomer - Tidsserie (etter type)</h2>
         </div>
-        <div id="symptom-chart" style="height: 400px;"></div>
+        <div id="symptom-chart" style="height: 500px;"></div>
     </div>
 
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">📊 Kombinert visning</h2>
+            <h2 class="card-title">📊 Kombinert visning - Alle typer</h2>
         </div>
-        <div id="combined-chart" style="height: 500px;"></div>
+        <div id="combined-chart" style="height: 600px;"></div>
     </div>
 </div>
 
 <script>
+// Color palettes for different types
+const mealColors = ['#2E8B57', '#FF6347', '#4169E1', '#FFD700', '#8A2BE2', '#FF1493', '#00CED1', '#32CD32', '#FF4500', '#9932CC'];
+const symptomColors = ['#DC143C', '#FF69B4', '#8B0000', '#B22222', '#CD5C5C', '#F08080', '#FA8072', '#E9967A', '#FFA07A', '#FF6347'];
+
 function updateCharts() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
@@ -77,26 +81,32 @@ function updateCharts() {
     fetch(`/timeseries/data?start=${startDate}&end=${endDate}`)
         .then(response => response.json())
         .then(data => {
-            // Prepare data for Plotly
-            const mealTimes = data.meal_series.map(point => point.time);
-            const mealValues = data.meal_series.map(point => point.value);
-            const symptomTimes = data.symptom_series.map(point => point.time);
-            const symptomValues = data.symptom_series.map(point => point.value);
+            // Create meal chart with separate traces for each meal type
+            const mealTraces = [];
+            let mealColorIndex = 0;
             
-            // Meal chart
-            const mealTrace = {
-                x: mealTimes,
-                y: mealValues,
-                type: 'scatter',
-                mode: 'lines',
-                name: 'Måltider',
-                line: { color: '#2E8B57', width: 1 },
-                fill: 'tozeroy',
-                fillcolor: 'rgba(46, 139, 87, 0.3)'
-            };
+            for (const [mealType, series] of Object.entries(data.meal_series_by_type || {})) {
+                const times = series.map(point => point.time);
+                const values = series.map(point => point.value);
+                
+                mealTraces.push({
+                    x: times,
+                    y: values,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: mealType,
+                    line: { 
+                        color: mealColors[mealColorIndex % mealColors.length], 
+                        width: 2 
+                    },
+                    fill: 'tozeroy',
+                    fillcolor: mealColors[mealColorIndex % mealColors.length].replace(')', ', 0.3)').replace('rgb', 'rgba')
+                });
+                mealColorIndex++;
+            }
             
             const mealLayout = {
-                title: 'Måltider over tid',
+                title: 'Måltider over tid - etter type',
                 xaxis: { 
                     title: 'Tid',
                     type: 'date'
@@ -106,25 +116,45 @@ function updateCharts() {
                     range: [-0.1, 1.1],
                     dtick: 1
                 },
-                margin: { t: 50, r: 50, b: 50, l: 80 }
+                margin: { t: 50, r: 50, b: 50, l: 80 },
+                legend: { 
+                    orientation: 'h',
+                    y: -0.2
+                }
             };
             
-            Plotly.newPlot('meal-chart', [mealTrace], mealLayout, {responsive: true});
+            if (mealTraces.length > 0) {
+                Plotly.newPlot('meal-chart', mealTraces, mealLayout, {responsive: true});
+            } else {
+                document.getElementById('meal-chart').innerHTML = '<div style="text-align: center; padding: 50px;">Ingen måltidsdata funnet for valgt periode</div>';
+            }
             
-            // Symptom chart
-            const symptomTrace = {
-                x: symptomTimes,
-                y: symptomValues,
-                type: 'scatter',
-                mode: 'lines',
-                name: 'Symptomer',
-                line: { color: '#DC143C', width: 1 },
-                fill: 'tozeroy',
-                fillcolor: 'rgba(220, 20, 60, 0.3)'
-            };
+            // Create symptom chart with separate traces for each symptom type
+            const symptomTraces = [];
+            let symptomColorIndex = 0;
+            
+            for (const [symptomType, series] of Object.entries(data.symptom_series_by_type || {})) {
+                const times = series.map(point => point.time);
+                const values = series.map(point => point.value);
+                
+                symptomTraces.push({
+                    x: times,
+                    y: values,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: symptomType,
+                    line: { 
+                        color: symptomColors[symptomColorIndex % symptomColors.length], 
+                        width: 2 
+                    },
+                    fill: 'tozeroy',
+                    fillcolor: symptomColors[symptomColorIndex % symptomColors.length].replace(')', ', 0.3)').replace('rgb', 'rgba')
+                });
+                symptomColorIndex++;
+            }
             
             const symptomLayout = {
-                title: 'Symptomer over tid',
+                title: 'Symptomer over tid - etter type',
                 xaxis: { 
                     title: 'Tid',
                     type: 'date'
@@ -134,51 +164,90 @@ function updateCharts() {
                     range: [-0.1, 1.1],
                     dtick: 1
                 },
-                margin: { t: 50, r: 50, b: 50, l: 80 }
+                margin: { t: 50, r: 50, b: 50, l: 80 },
+                legend: { 
+                    orientation: 'h',
+                    y: -0.2
+                }
             };
             
-            Plotly.newPlot('symptom-chart', [symptomTrace], symptomLayout, {responsive: true});
+            if (symptomTraces.length > 0) {
+                Plotly.newPlot('symptom-chart', symptomTraces, symptomLayout, {responsive: true});
+            } else {
+                document.getElementById('symptom-chart').innerHTML = '<div style="text-align: center; padding: 50px;">Ingen symptomdata funnet for valgt periode</div>';
+            }
             
-            // Combined chart
+            // Create combined chart with all types
+            const combinedTraces = [];
+            let combinedColorIndex = 0;
+            
+            // Add meal traces
+            for (const [mealType, series] of Object.entries(data.meal_series_by_type || {})) {
+                const times = series.map(point => point.time);
+                const values = series.map(point => point.value);
+                
+                combinedTraces.push({
+                    x: times,
+                    y: values,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: `🍽️ ${mealType}`,
+                    line: { 
+                        color: mealColors[combinedColorIndex % mealColors.length], 
+                        width: 2 
+                    },
+                    fill: 'tozeroy',
+                    fillcolor: mealColors[combinedColorIndex % mealColors.length].replace(')', ', 0.2)').replace('rgb', 'rgba')
+                });
+                combinedColorIndex++;
+            }
+            
+            // Add symptom traces (shifted to y=1.5 level for better visibility)
+            combinedColorIndex = 0;
+            for (const [symptomType, series] of Object.entries(data.symptom_series_by_type || {})) {
+                const times = series.map(point => point.time);
+                const values = series.map(point => point.value * 1.5); // Shift to 1.5 level
+                
+                combinedTraces.push({
+                    x: times,
+                    y: values,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: `🤒 ${symptomType}`,
+                    line: { 
+                        color: symptomColors[combinedColorIndex % symptomColors.length], 
+                        width: 2 
+                    },
+                    fill: 'tozeroy',
+                    fillcolor: symptomColors[combinedColorIndex % symptomColors.length].replace(')', ', 0.2)').replace('rgb', 'rgba')
+                });
+                combinedColorIndex++;
+            }
+            
             const combinedLayout = {
-                title: 'Måltider og symptomer - kombinert visning',
+                title: 'Måltider og symptomer - alle typer kombinert',
                 xaxis: { 
                     title: 'Tid',
                     type: 'date'
                 },
                 yaxis: { 
                     title: 'Hendelse',
-                    range: [-0.1, 2.1],
-                    tickvals: [0, 1, 2],
-                    ticktext: ['Ingen', 'Måltid/Symptom', 'Begge']
+                    range: [-0.1, 1.6],
+                    tickvals: [0, 1, 1.5],
+                    ticktext: ['Ingen', 'Måltid', 'Symptom']
                 },
-                margin: { t: 50, r: 50, b: 50, l: 80 }
+                margin: { t: 50, r: 50, b: 100, l: 80 },
+                legend: { 
+                    orientation: 'h',
+                    y: -0.3
+                }
             };
             
-            // Create combined data (meals at y=1, symptoms at y=2)
-            const mealTraceShifted = {
-                x: mealTimes,
-                y: mealValues,
-                type: 'scatter',
-                mode: 'lines',
-                name: 'Måltider',
-                line: { color: '#2E8B57', width: 2 },
-                fill: 'tozeroy',
-                fillcolor: 'rgba(46, 139, 87, 0.3)'
-            };
-            
-            const symptomTraceShifted = {
-                x: symptomTimes,
-                y: symptomValues.map(v => v * 2), // Shift symptoms to y=2
-                type: 'scatter',
-                mode: 'lines',
-                name: 'Symptomer',
-                line: { color: '#DC143C', width: 2 },
-                fill: 'tonexty',
-                fillcolor: 'rgba(220, 20, 60, 0.3)'
-            };
-            
-            Plotly.newPlot('combined-chart', [mealTraceShifted, symptomTraceShifted], combinedLayout, {responsive: true});
+            if (combinedTraces.length > 0) {
+                Plotly.newPlot('combined-chart', combinedTraces, combinedLayout, {responsive: true});
+            } else {
+                document.getElementById('combined-chart').innerHTML = '<div style="text-align: center; padding: 50px;">Ingen data funnet for valgt periode</div>';
+            }
         })
         .catch(error => {
             console.error('Feil ved henting av data:', error);

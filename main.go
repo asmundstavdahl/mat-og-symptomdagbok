@@ -828,6 +828,12 @@ type TimeSeriesData struct {
 	SymptomSeries []TimeSeriesPoint `json:"symptom_series"`
 }
 
+// DetailedTimeSeriesData represents time series data broken down by individual types
+type DetailedTimeSeriesData struct {
+	MealSeriesByType    map[string][]TimeSeriesPoint `json:"meal_series_by_type"`
+	SymptomSeriesByType map[string][]TimeSeriesPoint `json:"symptom_series_by_type"`
+}
+
 // timeSeriesDataHandler returns JSON data for time series visualization
 func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 	start := r.URL.Query().Get("start")
@@ -849,19 +855,19 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get all meals in the date range
+	// Get all meals with their items in the date range
 	mealRows, err := db.Query(
-		"SELECT timestamp FROM meals WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
+		"SELECT timestamp, items FROM meals WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
 	if err != nil {
 		http.Error(w, "kunne ikke hente måltider", http.StatusInternalServerError)
 		return
 	}
 	defer mealRows.Close()
 
-	var mealTimes []time.Time
+	mealsByType := make(map[string][]time.Time)
 	for mealRows.Next() {
-		var ts string
-		if err := mealRows.Scan(&ts); err != nil {
+		var ts, items string
+		if err := mealRows.Scan(&ts, &items); err != nil {
 			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
 			return
 		}
@@ -869,22 +875,29 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		mealTimes = append(mealTimes, t)
+		// Split items by comma and create separate entries for each
+		itemList := strings.Split(items, ",")
+		for _, item := range itemList {
+			item = strings.TrimSpace(item)
+			if item != "" {
+				mealsByType[item] = append(mealsByType[item], t)
+			}
+		}
 	}
 
-	// Get all symptoms in the date range
+	// Get all symptoms with their descriptions in the date range
 	symptomRows, err := db.Query(
-		"SELECT timestamp FROM symptoms WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
+		"SELECT timestamp, description FROM symptoms WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
 	if err != nil {
 		http.Error(w, "kunne ikke hente symptomer", http.StatusInternalServerError)
 		return
 	}
 	defer symptomRows.Close()
 
-	var symptomTimes []time.Time
+	symptomsByType := make(map[string][]time.Time)
 	for symptomRows.Next() {
-		var ts string
-		if err := symptomRows.Scan(&ts); err != nil {
+		var ts, description string
+		if err := symptomRows.Scan(&ts, &description); err != nil {
 			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
 			return
 		}
@@ -892,31 +905,34 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		symptomTimes = append(symptomTimes, t)
+		symptomsByType[description] = append(symptomsByType[description], t)
 	}
 
-	// Create minute-by-minute time series
-	var mealSeries []TimeSeriesPoint
-	var symptomSeries []TimeSeriesPoint
-
-	// Create maps for quick lookup of event times (rounded to minute)
-	mealMinutes := make(map[string]bool)
-	for _, t := range mealTimes {
-		// Convert UTC time to local time for comparison
-		localTime := t.Local()
-		minuteKey := localTime.Format("2006-01-02 15:04")
-		mealMinutes[minuteKey] = true
+	// Create maps for quick lookup of event times by type (rounded to minute)
+	mealMinutesByType := make(map[string]map[string]bool)
+	for mealType, times := range mealsByType {
+		mealMinutesByType[mealType] = make(map[string]bool)
+		for _, t := range times {
+			localTime := t.Local()
+			minuteKey := localTime.Format("2006-01-02 15:04")
+			mealMinutesByType[mealType][minuteKey] = true
+		}
 	}
 
-	symptomMinutes := make(map[string]bool)
-	for _, t := range symptomTimes {
-		// Convert UTC time to local time for comparison
-		localTime := t.Local()
-		minuteKey := localTime.Format("2006-01-02 15:04")
-		symptomMinutes[minuteKey] = true
+	symptomMinutesByType := make(map[string]map[string]bool)
+	for symptomType, times := range symptomsByType {
+		symptomMinutesByType[symptomType] = make(map[string]bool)
+		for _, t := range times {
+			localTime := t.Local()
+			minuteKey := localTime.Format("2006-01-02 15:04")
+			symptomMinutesByType[symptomType][minuteKey] = true
+		}
 	}
 
 	// Generate time series for each minute in the date range
+	mealSeriesByType := make(map[string][]TimeSeriesPoint)
+	symptomSeriesByType := make(map[string][]TimeSeriesPoint)
+
 	current := startDate
 	for !current.After(endDate) {
 		// For each day, generate 24*60 = 1440 minutes
@@ -925,33 +941,47 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 				timePoint := time.Date(current.Year(), current.Month(), current.Day(), hour, minute, 0, 0, current.Location())
 				timeStr := timePoint.Format("2006-01-02 15:04")
 
-				// Check if there's a meal at this minute
-				mealValue := 0
-				if mealMinutes[timeStr] {
-					mealValue = 1
-				}
-				mealSeries = append(mealSeries, TimeSeriesPoint{
-					Time:  timeStr,
-					Value: mealValue,
-				})
+				// Generate series for each meal type
+				for mealType := range mealsByType {
+					if mealSeriesByType[mealType] == nil {
+						mealSeriesByType[mealType] = []TimeSeriesPoint{}
+					}
+					
+					value := 0
+					if mealMinutesByType[mealType][timeStr] {
+						value = 1
+					}
 
-				// Check if there's a symptom at this minute
-				symptomValue := 0
-				if symptomMinutes[timeStr] {
-					symptomValue = 1
+					mealSeriesByType[mealType] = append(mealSeriesByType[mealType], TimeSeriesPoint{
+						Time:  timeStr,
+						Value: value,
+					})
 				}
-				symptomSeries = append(symptomSeries, TimeSeriesPoint{
-					Time:  timeStr,
-					Value: symptomValue,
-				})
+
+				// Generate series for each symptom type
+				for symptomType := range symptomsByType {
+					if symptomSeriesByType[symptomType] == nil {
+						symptomSeriesByType[symptomType] = []TimeSeriesPoint{}
+					}
+					
+					value := 0
+					if symptomMinutesByType[symptomType][timeStr] {
+						value = 1
+					}
+
+					symptomSeriesByType[symptomType] = append(symptomSeriesByType[symptomType], TimeSeriesPoint{
+						Time:  timeStr,
+						Value: value,
+					})
+				}
 			}
 		}
 		current = current.AddDate(0, 0, 1)
 	}
 
-	result := TimeSeriesData{
-		MealSeries:    mealSeries,
-		SymptomSeries: symptomSeries,
+	result := DetailedTimeSeriesData{
+		MealSeriesByType:    mealSeriesByType,
+		SymptomSeriesByType: symptomSeriesByType,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
