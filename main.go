@@ -221,6 +221,9 @@ func main() {
 	http.HandleFunc("/timeseries", timeSeriesPageHandler)
 	http.HandleFunc("/timeseries/data", timeSeriesDataHandler)
 
+	// API-endpoint for registrering av måltid
+	http.HandleFunc("/api/meal", apiMealHandler)
+
 	log.Printf("Server starting on :%d\n", *port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", *port), nil); err != nil {
 		log.Fatalf("server failed: %v", err)
@@ -763,6 +766,59 @@ func deleteSymptomHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+/*
+JSON-schema for måltidsregistrering (POST /api/meal):
+
+{
+  "items": "Brød, Melk",
+  "timestamp": "2024-06-10T12:34",
+  "note": "Valgfri kommentar"
+}
+
+Alle felter er påkrevd unntatt "note".
+"timestamp" må være på formatet "2006-01-02T15:04".
+*/
+
+func apiMealHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "kun POST er støttet", http.StatusMethodNotAllowed)
+		return
+	}
+	type MealInput struct {
+		Items     string `json:"items"`
+		Timestamp string `json:"timestamp"`
+		Note      string `json:"note"`
+	}
+	var input MealInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, "ugyldig JSON", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(input.Items) == "" || strings.TrimSpace(input.Timestamp) == "" {
+		http.Error(w, "items og timestamp må oppgis", http.StatusBadRequest)
+		return
+	}
+	t, err := time.Parse("2006-01-02T15:04", input.Timestamp)
+	if err != nil {
+		http.Error(w, "ugyldig timestamp-format, bruk 2006-01-02T15:04", http.StatusBadRequest)
+		return
+	}
+	res, err := db.Exec("INSERT INTO meals (items, timestamp, note) VALUES (?, ?, ?)", input.Items, t.Format(time.RFC3339), input.Note)
+	if err != nil {
+		http.Error(w, "feil ved lagring", http.StatusInternalServerError)
+		return
+	}
+	id, _ := res.LastInsertId()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(struct {
+		Status string `json:"status"`
+		ID     int64  `json:"id"`
+	}{
+		Status: "ok",
+		ID:     id,
+	})
 }
 
 // exportHandler exports all data as CSV or JSON.
