@@ -862,7 +862,34 @@ func lowPassFilter(series []int, tau float64) []float64 {
 	return out
 }
 
-// timeSeriesDataHandler returns JSON data for time series visualization
+/*
+Krysskorrelasjon mellom to binære tidsserier (måltid/symptom).
+Returnerer en slice med korrelasjonsverdier for lag fra -maxLag til +maxLag.
+*/
+func crossCorrelation(x, y []float64, maxLag int) ([]int, []float64) {
+	n := len(x)
+	cc := make([]float64, 2*maxLag+1)
+	lags := make([]int, 2*maxLag+1)
+	for lag := -maxLag; lag <= maxLag; lag++ {
+		var sum float64
+		var count int
+		for i := 0; i < n; i++ {
+			j := i + lag
+			if j < 0 || j >= n {
+				continue
+			}
+			sum += x[i] * y[j]
+			count++
+		}
+		if count > 0 {
+			cc[lag+maxLag] = sum / float64(count)
+		}
+		lags[lag+maxLag] = lag
+	}
+	return lags, cc
+}
+
+// timeSeriesDataHandler returns JSON data for cross-correlation visualization
 func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 	start := r.URL.Query().Get("start")
 	end := r.URL.Query().Get("end")
@@ -965,22 +992,16 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate time series for each minute in the date range
-	mealSeriesByType := make(map[string][]TimeSeriesPoint)
-	symptomSeriesByType := make(map[string][]TimeSeriesPoint)
-
-	// For filtrering: lag også "rå" int-serier for hver type
 	mealRawSeries := make(map[string][]int)
 	symptomRawSeries := make(map[string][]int)
 
 	current := startDate
 	for !current.After(endDate) {
-		// For each day, generate 24*60 = 1440 minutes
 		for hour := 0; hour < 24; hour++ {
 			for minute := 0; minute < 60; minute++ {
 				timePoint := time.Date(current.Year(), current.Month(), current.Day(), hour, minute, 0, 0, current.Location())
 				timeStr := timePoint.Format("2006-01-02 15:04")
 
-				// Generate series for each meal type
 				for mealType := range mealsByType {
 					if mealRawSeries[mealType] == nil {
 						mealRawSeries[mealType] = []int{}
@@ -992,7 +1013,6 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 					mealRawSeries[mealType] = append(mealRawSeries[mealType], value)
 				}
 
-				// Generate series for each symptom type
 				for symptomType := range symptomsByType {
 					if symptomRawSeries[symptomType] == nil {
 						symptomRawSeries[symptomType] = []int{}
@@ -1009,63 +1029,39 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Filtrer seriene
+	mealFiltered := make(map[string][]float64)
+	symptomFiltered := make(map[string][]float64)
 	for mealType, raw := range mealRawSeries {
-		filtered := lowPassFilter(raw, tau)
-		series := make([]TimeSeriesPoint, len(filtered))
-		// Rekonstruer tidspunktene
-		current := startDate
-		idx := 0
-		for !current.After(endDate) {
-			for hour := 0; hour < 24; hour++ {
-				for minute := 0; minute < 60; minute++ {
-					if idx >= len(filtered) {
-						break
-					}
-					timePoint := time.Date(current.Year(), current.Month(), current.Day(), hour, minute, 0, 0, current.Location())
-					timeStr := timePoint.Format("2006-01-02 15:04")
-					series[idx] = TimeSeriesPoint{
-						Time:  timeStr,
-						Value: math.Round(filtered[idx]*1000) / 1000, // 3 desimaler
-					}
-					idx++
-				}
-			}
-			current = current.AddDate(0, 0, 1)
-		}
-		mealSeriesByType[mealType] = series
+		mealFiltered[mealType] = lowPassFilter(raw, tau)
 	}
 	for symptomType, raw := range symptomRawSeries {
-		filtered := lowPassFilter(raw, tau)
-		series := make([]TimeSeriesPoint, len(filtered))
-		current := startDate
-		idx := 0
-		for !current.After(endDate) {
-			for hour := 0; hour < 24; hour++ {
-				for minute := 0; minute < 60; minute++ {
-					if idx >= len(filtered) {
-						break
-					}
-					timePoint := time.Date(current.Year(), current.Month(), current.Day(), hour, minute, 0, 0, current.Location())
-					timeStr := timePoint.Format("2006-01-02 15:04")
-					series[idx] = TimeSeriesPoint{
-						Time:  timeStr,
-						Value: math.Round(filtered[idx]*1000) / 1000,
-					}
-					idx++
-				}
-			}
-			current = current.AddDate(0, 0, 1)
-		}
-		symptomSeriesByType[symptomType] = series
+		symptomFiltered[symptomType] = lowPassFilter(raw, tau)
 	}
 
-	result := DetailedTimeSeriesData{
-		MealSeriesByType:    mealSeriesByType,
-		SymptomSeriesByType: symptomSeriesByType,
+	// Krysskorrelasjon mellom hver måltidstype og symptomtype
+	maxLag := 12 * 60 // 12 timer, i minutter
+	type CrossCorrResult struct {
+		MealType    string    `json:"meal_type"`
+		SymptomType string    `json:"symptom_type"`
+		Lags        []int     `json:"lags"`
+		Corr        []float64 `json:"corr"`
+	}
+	var results []CrossCorrResult
+	for mealType, mealSeries := range mealFiltered {
+		for symptomType, symptomSeries := range symptomFiltered {
+			// Krysskorrelasjon
+			lags, corr := crossCorrelation(mealSeries, symptomSeries, maxLag)
+			results = append(results, CrossCorrResult{
+				MealType:    mealType,
+				SymptomType: symptomType,
+				Lags:        lags,
+				Corr:        corr,
+			})
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(result); err != nil {
+	if err := json.NewEncoder(w).Encode(results); err != nil {
 		http.Error(w, "feil ved encoding av JSON", http.StatusInternalServerError)
 		return
 	}

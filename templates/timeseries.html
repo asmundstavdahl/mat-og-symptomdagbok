@@ -86,180 +86,142 @@ function updateCharts() {
     fetch(`/timeseries/data?start=${startDate}&end=${endDate}&tau=${tau}`)
         .then(response => response.json())
         .then(data => {
-            // Create meal chart with separate traces for each meal type
-            const mealTraces = [];
+            // data: array of {meal_type, symptom_type, lags, corr}
+            // Bygg opp et sett av alle meal_types og symptom_types
+            const mealTypes = new Set();
+            const symptomTypes = new Set();
+            for (const entry of data) {
+                mealTypes.add(entry.meal_type);
+                symptomTypes.add(entry.symptom_type);
+            }
+
+            // Måltid vs symptom: ett plot per par
+            // 1. Måltidstype mot alle symptomtyper
+            document.getElementById('meal-chart').innerHTML = '';
+            let mealPlots = [];
             let mealColorIndex = 0;
-            let mealMax = 1.0;
-            for (const [mealType, series] of Object.entries(data.meal_series_by_type || {})) {
-                const times = series.map(point => point.time);
-                const values = series.map(point => point.value);
-                const localMax = Math.max(...values);
-                if (localMax > mealMax) mealMax = localMax;
-                mealTraces.push({
-                    x: times,
-                    y: values,
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: mealType,
-                    line: { 
-                        color: mealColors[mealColorIndex % mealColors.length], 
-                        width: 2 
-                    },
-                    fill: 'tozeroy',
-                    fillcolor: mealColors[mealColorIndex % mealColors.length].replace(')', ', 0.3)').replace('rgb', 'rgba')
-                });
-                mealColorIndex++;
-            }
-            mealMax = Math.ceil(mealMax * 1.05 * 10) / 10; // litt margin, 1 desimal
-
-            const mealLayout = {
-                title: 'Måltider over tid - etter type',
-                xaxis: { 
-                    title: 'Tid',
-                    type: 'date'
-                },
-                yaxis: { 
-                    title: 'Hendelse (1 = måltid, 0 = ingen)',
-                    range: [-0.1, mealMax > 1.1 ? mealMax : 1.1],
-                    dtick: mealMax > 1.1 ? undefined : 1
-                },
-                margin: { t: 50, r: 50, b: 50, l: 80 },
-                legend: { 
-                    orientation: 'h',
-                    y: -0.2
+            for (const mealType of mealTypes) {
+                const traces = [];
+                let localMax = 0;
+                let localMin = 0;
+                let colorIdx = 0;
+                for (const symptomType of symptomTypes) {
+                    const entry = data.find(e => e.meal_type === mealType && e.symptom_type === symptomType);
+                    if (!entry) continue;
+                    const lags = entry.lags.map(l => l / 60); // minutter til timer
+                    const corr = entry.corr;
+                    const maxCorr = Math.max(...corr);
+                    const minCorr = Math.min(...corr);
+                    if (maxCorr > localMax) localMax = maxCorr;
+                    if (minCorr < localMin) localMin = minCorr;
+                    traces.push({
+                        x: lags,
+                        y: corr,
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: symptomType,
+                        line: { 
+                            color: symptomColors[colorIdx % symptomColors.length], 
+                            width: 2 
+                        }
+                    });
+                    colorIdx++;
                 }
-            };
-            
-            if (mealTraces.length > 0) {
-                Plotly.newPlot('meal-chart', mealTraces, mealLayout, {responsive: true});
-            } else {
-                document.getElementById('meal-chart').innerHTML = '<div style="text-align: center; padding: 50px;">Ingen måltidsdata funnet for valgt periode</div>';
+                if (traces.length > 0) {
+                    const layout = {
+                        title: `Krysskorrelasjon: ${mealType} vs symptomer`,
+                        xaxis: { title: 'Forsinkelse (timer)', zeroline: true },
+                        yaxis: { title: 'Krysskorrelasjon', range: [localMin-0.05, localMax+0.05] },
+                        margin: { t: 50, r: 50, b: 50, l: 80 },
+                        legend: { orientation: 'h', y: -0.2 }
+                    };
+                    const divId = `meal-cc-${mealColorIndex}`;
+                    const div = document.createElement('div');
+                    div.id = divId;
+                    div.style.height = '400px';
+                    document.getElementById('meal-chart').appendChild(div);
+                    Plotly.newPlot(divId, traces, layout, {responsive: true});
+                    mealColorIndex++;
+                }
             }
-            
-            // Create symptom chart with separate traces for each symptom type
-            const symptomTraces = [];
+
+            // 2. Symptomtype mot alle måltidstyper
+            document.getElementById('symptom-chart').innerHTML = '';
+            let symptomPlots = [];
             let symptomColorIndex = 0;
-            let symptomMax = 1.0;
-            for (const [symptomType, series] of Object.entries(data.symptom_series_by_type || {})) {
-                const times = series.map(point => point.time);
-                const values = series.map(point => point.value);
-                const localMax = Math.max(...values);
-                if (localMax > symptomMax) symptomMax = localMax;
-                symptomTraces.push({
-                    x: times,
-                    y: values,
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: symptomType,
-                    line: { 
-                        color: symptomColors[symptomColorIndex % symptomColors.length], 
-                        width: 2 
-                    },
-                    fill: 'tozeroy',
-                    fillcolor: symptomColors[symptomColorIndex % symptomColors.length].replace(')', ', 0.3)').replace('rgb', 'rgba')
-                });
-                symptomColorIndex++;
-            }
-            symptomMax = Math.ceil(symptomMax * 1.05 * 10) / 10;
-
-            const symptomLayout = {
-                title: 'Symptomer over tid - etter type',
-                xaxis: { 
-                    title: 'Tid',
-                    type: 'date'
-                },
-                yaxis: { 
-                    title: 'Hendelse (1 = symptom, 0 = ingen)',
-                    range: [-0.1, symptomMax > 1.1 ? symptomMax : 1.1],
-                    dtick: symptomMax > 1.1 ? undefined : 1
-                },
-                margin: { t: 50, r: 50, b: 50, l: 80 },
-                legend: { 
-                    orientation: 'h',
-                    y: -0.2
+            for (const symptomType of symptomTypes) {
+                const traces = [];
+                let localMax = 0;
+                let localMin = 0;
+                let colorIdx = 0;
+                for (const mealType of mealTypes) {
+                    const entry = data.find(e => e.meal_type === mealType && e.symptom_type === symptomType);
+                    if (!entry) continue;
+                    const lags = entry.lags.map(l => l / 60);
+                    const corr = entry.corr;
+                    const maxCorr = Math.max(...corr);
+                    const minCorr = Math.min(...corr);
+                    if (maxCorr > localMax) localMax = maxCorr;
+                    if (minCorr < localMin) localMin = minCorr;
+                    traces.push({
+                        x: lags,
+                        y: corr,
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: mealType,
+                        line: { 
+                            color: mealColors[colorIdx % mealColors.length], 
+                            width: 2 
+                        }
+                    });
+                    colorIdx++;
                 }
-            };
-            
-            if (symptomTraces.length > 0) {
-                Plotly.newPlot('symptom-chart', symptomTraces, symptomLayout, {responsive: true});
-            } else {
-                document.getElementById('symptom-chart').innerHTML = '<div style="text-align: center; padding: 50px;">Ingen symptomdata funnet for valgt periode</div>';
+                if (traces.length > 0) {
+                    const layout = {
+                        title: `Krysskorrelasjon: ${symptomType} vs måltider`,
+                        xaxis: { title: 'Forsinkelse (timer)', zeroline: true },
+                        yaxis: { title: 'Krysskorrelasjon', range: [localMin-0.05, localMax+0.05] },
+                        margin: { t: 50, r: 50, b: 50, l: 80 },
+                        legend: { orientation: 'h', y: -0.2 }
+                    };
+                    const divId = `symptom-cc-${symptomColorIndex}`;
+                    const div = document.createElement('div');
+                    div.id = divId;
+                    div.style.height = '400px';
+                    document.getElementById('symptom-chart').appendChild(div);
+                    Plotly.newPlot(divId, traces, layout, {responsive: true});
+                    symptomColorIndex++;
+                }
             }
-            
-            // Create combined chart with all types
+
+            // 3. Kombinert: alle par
+            document.getElementById('combined-chart').innerHTML = '';
             const combinedTraces = [];
             let combinedColorIndex = 0;
-            let combinedMealMax = 1.0;
-            let combinedSymptomMax = 1.0;
-            // Add meal traces
-            for (const [mealType, series] of Object.entries(data.meal_series_by_type || {})) {
-                const times = series.map(point => point.time);
-                const values = series.map(point => point.value);
-                const localMax = Math.max(...values);
-                if (localMax > combinedMealMax) combinedMealMax = localMax;
+            for (const entry of data) {
+                const lags = entry.lags.map(l => l / 60);
                 combinedTraces.push({
-                    x: times,
-                    y: values,
+                    x: lags,
+                    y: entry.corr,
                     type: 'scatter',
                     mode: 'lines',
-                    name: `🍽️ ${mealType}`,
+                    name: `${entry.meal_type} → ${entry.symptom_type}`,
                     line: { 
                         color: mealColors[combinedColorIndex % mealColors.length], 
                         width: 2 
-                    },
-                    fill: 'tozeroy',
-                    fillcolor: mealColors[combinedColorIndex % mealColors.length].replace(')', ', 0.2)').replace('rgb', 'rgba')
+                    }
                 });
                 combinedColorIndex++;
             }
-            
-            // Add symptom traces (shifted to y=1.5 level for better visibility)
-            combinedColorIndex = 0;
-            for (const [symptomType, series] of Object.entries(data.symptom_series_by_type || {})) {
-                const times = series.map(point => point.time);
-                const values = series.map(point => point.value * 1.5); // Shift to 1.5 level
-                const localMax = Math.max(...series.map(point => point.value));
-                if (localMax > combinedSymptomMax) combinedSymptomMax = localMax;
-                combinedTraces.push({
-                    x: times,
-                    y: values,
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: `🤒 ${symptomType}`,
-                    line: { 
-                        color: symptomColors[combinedColorIndex % symptomColors.length], 
-                        width: 2 
-                    },
-                    fill: 'tozeroy',
-                    fillcolor: symptomColors[combinedColorIndex % symptomColors.length].replace(')', ', 0.2)').replace('rgb', 'rgba')
-                });
-                combinedColorIndex++;
-            }
-            // combined y-aksen: fra -0.1 til max av (måltid, symptom*1.5)
-            let combinedMax = Math.max(combinedMealMax, combinedSymptomMax * 1.5);
-            combinedMax = Math.ceil(combinedMax * 1.05 * 10) / 10;
-
-            const combinedLayout = {
-                title: 'Måltider og symptomer - alle typer kombinert',
-                xaxis: { 
-                    title: 'Tid',
-                    type: 'date'
-                },
-                yaxis: { 
-                    title: 'Hendelse',
-                    range: [-0.1, combinedMax > 1.6 ? combinedMax : 1.6],
-                    tickvals: [0, 1, 1.5],
-                    ticktext: ['Ingen', 'Måltid', 'Symptom']
-                },
-                margin: { t: 50, r: 50, b: 100, l: 80 },
-                legend: { 
-                    orientation: 'h',
-                    y: -0.3
-                }
-            };
-            
             if (combinedTraces.length > 0) {
-                Plotly.newPlot('combined-chart', combinedTraces, combinedLayout, {responsive: true});
+                const layout = {
+                    title: 'Krysskorrelasjon: alle måltidstyper og symptomtyper',
+                    xaxis: { title: 'Forsinkelse (timer)', zeroline: true },
+                    yaxis: { title: 'Krysskorrelasjon' },
+                    margin: { t: 50, r: 50, b: 100, l: 80 },
+                    legend: { orientation: 'h', y: -0.3 }
+                };
+                Plotly.newPlot('combined-chart', combinedTraces, layout, {responsive: true});
             } else {
                 document.getElementById('combined-chart').innerHTML = '<div style="text-align: center; padding: 50px;">Ingen data funnet for valgt periode</div>';
             }
