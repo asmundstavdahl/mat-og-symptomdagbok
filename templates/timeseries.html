@@ -43,21 +43,7 @@
 
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">🍽️ Måltider - Tidsserie (etter type)</h2>
-        </div>
-        <div id="meal-chart" style="height: 500px;"></div>
-    </div>
-
-    <div class="card">
-        <div class="card-header">
-            <h2 class="card-title">🤒 Symptomer - Tidsserie (etter type)</h2>
-        </div>
-        <div id="symptom-chart" style="height: 500px;"></div>
-    </div>
-
-    <div class="card">
-        <div class="card-header">
-            <h2 class="card-title">📊 Kombinert visning - Alle typer</h2>
+            <h2 class="card-title">📊 Krysskorrelasjon - Alle måltidstyper og symptomtyper</h2>
         </div>
         <div id="combined-chart" style="height: 600px;"></div>
     </div>
@@ -79,121 +65,11 @@ function updateCharts() {
     }
     
     // Show loading state
-    document.getElementById('meal-chart').innerHTML = '<div style="text-align: center; padding: 50px;">Laster data...</div>';
-    document.getElementById('symptom-chart').innerHTML = '<div style="text-align: center; padding: 50px;">Laster data...</div>';
     document.getElementById('combined-chart').innerHTML = '<div style="text-align: center; padding: 50px;">Laster data...</div>';
     
     fetch(`/timeseries/data?start=${startDate}&end=${endDate}&tau=${tau}`)
         .then(response => response.json())
         .then(data => {
-            // data: array of {meal_type, symptom_type, lags, corr}
-            // Bygg opp et sett av alle meal_types og symptom_types
-            const mealTypes = new Set();
-            const symptomTypes = new Set();
-            for (const entry of data) {
-                mealTypes.add(entry.meal_type);
-                symptomTypes.add(entry.symptom_type);
-            }
-
-            // Måltid vs symptom: ett plot per par
-            // 1. Måltidstype mot alle symptomtyper
-            document.getElementById('meal-chart').innerHTML = '';
-            let mealPlots = [];
-            let mealColorIndex = 0;
-            for (const mealType of mealTypes) {
-                const traces = [];
-                let localMax = 0;
-                let localMin = 0;
-                let colorIdx = 0;
-                for (const symptomType of symptomTypes) {
-                    const entry = data.find(e => e.meal_type === mealType && e.symptom_type === symptomType);
-                    if (!entry) continue;
-                    const lags = entry.lags.map(l => l / 60); // minutter til timer
-                    const corr = entry.corr;
-                    const maxCorr = Math.max(...corr);
-                    const minCorr = Math.min(...corr);
-                    if (maxCorr > localMax) localMax = maxCorr;
-                    if (minCorr < localMin) localMin = minCorr;
-                    traces.push({
-                        x: lags,
-                        y: corr,
-                        type: 'scatter',
-                        mode: 'lines',
-                        name: symptomType,
-                        line: { 
-                            color: symptomColors[colorIdx % symptomColors.length], 
-                            width: 2 
-                        }
-                    });
-                    colorIdx++;
-                }
-                if (traces.length > 0) {
-                    const layout = {
-                        title: `Krysskorrelasjon: ${mealType} vs symptomer`,
-                        xaxis: { title: 'Forsinkelse (timer)', zeroline: true },
-                        yaxis: { title: 'Krysskorrelasjon', range: [localMin-0.05, localMax+0.05] },
-                        margin: { t: 50, r: 50, b: 50, l: 80 },
-                        legend: { orientation: 'h', y: -0.2 }
-                    };
-                    const divId = `meal-cc-${mealColorIndex}`;
-                    const div = document.createElement('div');
-                    div.id = divId;
-                    div.style.height = '400px';
-                    document.getElementById('meal-chart').appendChild(div);
-                    Plotly.newPlot(divId, traces, layout, {responsive: true});
-                    mealColorIndex++;
-                }
-            }
-
-            // 2. Symptomtype mot alle måltidstyper
-            document.getElementById('symptom-chart').innerHTML = '';
-            let symptomPlots = [];
-            let symptomColorIndex = 0;
-            for (const symptomType of symptomTypes) {
-                const traces = [];
-                let localMax = 0;
-                let localMin = 0;
-                let colorIdx = 0;
-                for (const mealType of mealTypes) {
-                    const entry = data.find(e => e.meal_type === mealType && e.symptom_type === symptomType);
-                    if (!entry) continue;
-                    const lags = entry.lags.map(l => l / 60);
-                    const corr = entry.corr;
-                    const maxCorr = Math.max(...corr);
-                    const minCorr = Math.min(...corr);
-                    if (maxCorr > localMax) localMax = maxCorr;
-                    if (minCorr < localMin) localMin = minCorr;
-                    traces.push({
-                        x: lags,
-                        y: corr,
-                        type: 'scatter',
-                        mode: 'lines',
-                        name: mealType,
-                        line: { 
-                            color: mealColors[colorIdx % mealColors.length], 
-                            width: 2 
-                        }
-                    });
-                    colorIdx++;
-                }
-                if (traces.length > 0) {
-                    const layout = {
-                        title: `Krysskorrelasjon: ${symptomType} vs måltider`,
-                        xaxis: { title: 'Forsinkelse (timer)', zeroline: true },
-                        yaxis: { title: 'Krysskorrelasjon', range: [localMin-0.05, localMax+0.05] },
-                        margin: { t: 50, r: 50, b: 50, l: 80 },
-                        legend: { orientation: 'h', y: -0.2 }
-                    };
-                    const divId = `symptom-cc-${symptomColorIndex}`;
-                    const div = document.createElement('div');
-                    div.id = divId;
-                    div.style.height = '400px';
-                    document.getElementById('symptom-chart').appendChild(div);
-                    Plotly.newPlot(divId, traces, layout, {responsive: true});
-                    symptomColorIndex++;
-                }
-            }
-
             // 3. Kombinert: alle par
             document.getElementById('combined-chart').innerHTML = '';
             const combinedTraces = [];
