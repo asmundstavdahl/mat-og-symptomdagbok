@@ -89,11 +89,12 @@ function updateCharts() {
             // Create meal chart with separate traces for each meal type
             const mealTraces = [];
             let mealColorIndex = 0;
-            
+            let mealMax = 1.0;
             for (const [mealType, series] of Object.entries(data.meal_series_by_type || {})) {
                 const times = series.map(point => point.time);
                 const values = series.map(point => point.value);
-                
+                const localMax = Math.max(...values);
+                if (localMax > mealMax) mealMax = localMax;
                 mealTraces.push({
                     x: times,
                     y: values,
@@ -109,7 +110,8 @@ function updateCharts() {
                 });
                 mealColorIndex++;
             }
-            
+            mealMax = Math.ceil(mealMax * 1.05 * 10) / 10; // litt margin, 1 desimal
+
             const mealLayout = {
                 title: 'Måltider over tid - etter type',
                 xaxis: { 
@@ -118,8 +120,8 @@ function updateCharts() {
                 },
                 yaxis: { 
                     title: 'Hendelse (1 = måltid, 0 = ingen)',
-                    range: [-0.1, 1.1],
-                    dtick: 1
+                    range: [-0.1, mealMax > 1.1 ? mealMax : 1.1],
+                    dtick: mealMax > 1.1 ? undefined : 1
                 },
                 margin: { t: 50, r: 50, b: 50, l: 80 },
                 legend: { 
@@ -137,11 +139,12 @@ function updateCharts() {
             // Create symptom chart with separate traces for each symptom type
             const symptomTraces = [];
             let symptomColorIndex = 0;
-            
+            let symptomMax = 1.0;
             for (const [symptomType, series] of Object.entries(data.symptom_series_by_type || {})) {
                 const times = series.map(point => point.time);
                 const values = series.map(point => point.value);
-                
+                const localMax = Math.max(...values);
+                if (localMax > symptomMax) symptomMax = localMax;
                 symptomTraces.push({
                     x: times,
                     y: values,
@@ -157,7 +160,8 @@ function updateCharts() {
                 });
                 symptomColorIndex++;
             }
-            
+            symptomMax = Math.ceil(symptomMax * 1.05 * 10) / 10;
+
             const symptomLayout = {
                 title: 'Symptomer over tid - etter type',
                 xaxis: { 
@@ -166,8 +170,8 @@ function updateCharts() {
                 },
                 yaxis: { 
                     title: 'Hendelse (1 = symptom, 0 = ingen)',
-                    range: [-0.1, 1.1],
-                    dtick: 1
+                    range: [-0.1, symptomMax > 1.1 ? symptomMax : 1.1],
+                    dtick: symptomMax > 1.1 ? undefined : 1
                 },
                 margin: { t: 50, r: 50, b: 50, l: 80 },
                 legend: { 
@@ -185,12 +189,14 @@ function updateCharts() {
             // Create combined chart with all types
             const combinedTraces = [];
             let combinedColorIndex = 0;
-            
+            let combinedMealMax = 1.0;
+            let combinedSymptomMax = 1.0;
             // Add meal traces
             for (const [mealType, series] of Object.entries(data.meal_series_by_type || {})) {
                 const times = series.map(point => point.time);
                 const values = series.map(point => point.value);
-                
+                const localMax = Math.max(...values);
+                if (localMax > combinedMealMax) combinedMealMax = localMax;
                 combinedTraces.push({
                     x: times,
                     y: values,
@@ -212,7 +218,8 @@ function updateCharts() {
             for (const [symptomType, series] of Object.entries(data.symptom_series_by_type || {})) {
                 const times = series.map(point => point.time);
                 const values = series.map(point => point.value * 1.5); // Shift to 1.5 level
-                
+                const localMax = Math.max(...series.map(point => point.value));
+                if (localMax > combinedSymptomMax) combinedSymptomMax = localMax;
                 combinedTraces.push({
                     x: times,
                     y: values,
@@ -228,7 +235,10 @@ function updateCharts() {
                 });
                 combinedColorIndex++;
             }
-            
+            // combined y-aksen: fra -0.1 til max av (måltid, symptom*1.5)
+            let combinedMax = Math.max(combinedMealMax, combinedSymptomMax * 1.5);
+            combinedMax = Math.ceil(combinedMax * 1.05 * 10) / 10;
+
             const combinedLayout = {
                 title: 'Måltider og symptomer - alle typer kombinert',
                 xaxis: { 
@@ -237,7 +247,7 @@ function updateCharts() {
                 },
                 yaxis: { 
                     title: 'Hendelse',
-                    range: [-0.1, 1.6],
+                    range: [-0.1, combinedMax > 1.6 ? combinedMax : 1.6],
                     tickvals: [0, 1, 1.5],
                     ticktext: ['Ingen', 'Måltid', 'Symptom']
                 },
