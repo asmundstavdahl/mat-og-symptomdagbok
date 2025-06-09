@@ -818,8 +818,8 @@ func timeSeriesPageHandler(w http.ResponseWriter, r *http.Request) {
 
 // TimeSeriesPoint represents a single point in the time series
 type TimeSeriesPoint struct {
-	Time  string `json:"time"`
-	Value int    `json:"value"`
+	Time  string  `json:"time"`
+	Value float64 `json:"value"`
 }
 
 // TimeSeriesData represents the complete time series data for visualization
@@ -1025,7 +1025,7 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 					timeStr := timePoint.Format("2006-01-02 15:04")
 					series[idx] = TimeSeriesPoint{
 						Time:  timeStr,
-						Value: int(filtered[idx]*1000) / 1000.0, // 3 desimaler
+						Value: math.Round(filtered[idx]*1000) / 1000, // 3 desimaler
 					}
 					idx++
 				}
@@ -1049,7 +1049,7 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 					timeStr := timePoint.Format("2006-01-02 15:04")
 					series[idx] = TimeSeriesPoint{
 						Time:  timeStr,
-						Value: int(filtered[idx]*1000) / 1000.0,
+						Value: math.Round(filtered[idx]*1000) / 1000,
 					}
 					idx++
 				}
