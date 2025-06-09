@@ -218,6 +218,8 @@ func main() {
 	http.HandleFunc("/meal-symptom-analysis", mealSymptomAnalysisHandler)
 	http.HandleFunc("/crosscorr", crossCorrPageHandler)
 	http.HandleFunc("/crosscorr/data", crossCorrDataHandler)
+	http.HandleFunc("/timeseries", timeSeriesPageHandler)
+	http.HandleFunc("/timeseries/data", timeSeriesDataHandler)
 
 	log.Printf("Server starting on :%d\n", *port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", *port), nil); err != nil {
@@ -799,5 +801,162 @@ func exportHandler(w http.ResponseWriter, r *http.Request) {
 		for _, s := range symptoms {
 			writer.Write([]string{"symptom", strconv.Itoa(s.ID), s.Description, s.Timestamp.Format(time.RFC3339), s.Note})
 		}
+	}
+}
+
+// timeSeriesPageHandler displays the time series visualization page.
+func timeSeriesPageHandler(w http.ResponseWriter, r *http.Request) {
+	now := time.Now()
+	data := struct{ Start, End string }{
+		Start: now.AddDate(0, 0, -7).Format("2006-01-02"),
+		End:   now.Format("2006-01-02"),
+	}
+	if err := templates.ExecuteTemplate(w, "timeseries.html", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// TimeSeriesPoint represents a single point in the time series
+type TimeSeriesPoint struct {
+	Time  string `json:"time"`
+	Value int    `json:"value"`
+}
+
+// TimeSeriesData represents the complete time series data for visualization
+type TimeSeriesData struct {
+	MealSeries    []TimeSeriesPoint `json:"meal_series"`
+	SymptomSeries []TimeSeriesPoint `json:"symptom_series"`
+}
+
+// timeSeriesDataHandler returns JSON data for time series visualization
+func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
+	start := r.URL.Query().Get("start")
+	end := r.URL.Query().Get("end")
+	if start == "" || end == "" {
+		http.Error(w, "start og end må spesifiseres", http.StatusBadRequest)
+		return
+	}
+
+	layout := "2006-01-02"
+	startDate, err := time.Parse(layout, start)
+	if err != nil {
+		http.Error(w, "ugyldig startdato", http.StatusBadRequest)
+		return
+	}
+	endDate, err := time.Parse(layout, end)
+	if err != nil {
+		http.Error(w, "ugyldig sluttdato", http.StatusBadRequest)
+		return
+	}
+
+	// Get all meals in the date range
+	mealRows, err := db.Query(
+		"SELECT timestamp FROM meals WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
+	if err != nil {
+		http.Error(w, "kunne ikke hente måltider", http.StatusInternalServerError)
+		return
+	}
+	defer mealRows.Close()
+
+	var mealTimes []time.Time
+	for mealRows.Next() {
+		var ts string
+		if err := mealRows.Scan(&ts); err != nil {
+			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
+			return
+		}
+		t, err := time.Parse(time.RFC3339, ts)
+		if err != nil {
+			continue
+		}
+		mealTimes = append(mealTimes, t)
+	}
+
+	// Get all symptoms in the date range
+	symptomRows, err := db.Query(
+		"SELECT timestamp FROM symptoms WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
+	if err != nil {
+		http.Error(w, "kunne ikke hente symptomer", http.StatusInternalServerError)
+		return
+	}
+	defer symptomRows.Close()
+
+	var symptomTimes []time.Time
+	for symptomRows.Next() {
+		var ts string
+		if err := symptomRows.Scan(&ts); err != nil {
+			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
+			return
+		}
+		t, err := time.Parse(time.RFC3339, ts)
+		if err != nil {
+			continue
+		}
+		symptomTimes = append(symptomTimes, t)
+	}
+
+	// Create minute-by-minute time series
+	var mealSeries []TimeSeriesPoint
+	var symptomSeries []TimeSeriesPoint
+
+	// Create maps for quick lookup of event times (rounded to minute)
+	mealMinutes := make(map[string]bool)
+	for _, t := range mealTimes {
+		// Convert UTC time to local time for comparison
+		localTime := t.Local()
+		minuteKey := localTime.Format("2006-01-02 15:04")
+		mealMinutes[minuteKey] = true
+	}
+
+	symptomMinutes := make(map[string]bool)
+	for _, t := range symptomTimes {
+		// Convert UTC time to local time for comparison
+		localTime := t.Local()
+		minuteKey := localTime.Format("2006-01-02 15:04")
+		symptomMinutes[minuteKey] = true
+	}
+
+	// Generate time series for each minute in the date range
+	current := startDate
+	for !current.After(endDate) {
+		// For each day, generate 24*60 = 1440 minutes
+		for hour := 0; hour < 24; hour++ {
+			for minute := 0; minute < 60; minute++ {
+				timePoint := time.Date(current.Year(), current.Month(), current.Day(), hour, minute, 0, 0, current.Location())
+				timeStr := timePoint.Format("2006-01-02 15:04")
+
+				// Check if there's a meal at this minute
+				mealValue := 0
+				if mealMinutes[timeStr] {
+					mealValue = 1
+				}
+				mealSeries = append(mealSeries, TimeSeriesPoint{
+					Time:  timeStr,
+					Value: mealValue,
+				})
+
+				// Check if there's a symptom at this minute
+				symptomValue := 0
+				if symptomMinutes[timeStr] {
+					symptomValue = 1
+				}
+				symptomSeries = append(symptomSeries, TimeSeriesPoint{
+					Time:  timeStr,
+					Value: symptomValue,
+				})
+			}
+		}
+		current = current.AddDate(0, 0, 1)
+	}
+
+	result := TimeSeriesData{
+		MealSeries:    mealSeries,
+		SymptomSeries: symptomSeries,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		http.Error(w, "feil ved encoding av JSON", http.StatusInternalServerError)
+		return
 	}
 }
