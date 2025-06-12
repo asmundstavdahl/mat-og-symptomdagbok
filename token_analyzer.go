@@ -145,6 +145,11 @@ func shouldSkip(path string) bool {
 	// Skip binary files and certain directories
 	lowerPath := strings.ToLower(path)
 	
+	// Skip .git directories completely
+	if strings.Contains(lowerPath, "/.git") || strings.HasPrefix(lowerPath, ".git") {
+		return true
+	}
+	
 	// Skip binary and generated files
 	skipExts := []string{
 		".exe", ".dll", ".so", ".dylib", ".bin", ".obj", ".o",
@@ -165,7 +170,7 @@ func shouldSkip(path string) bool {
 	// Skip certain directories
 	skipDirs := []string{
 		"node_modules", "vendor", "dist", "build", "bin",
-		".git", ".svn", ".hg", ".idea", ".vscode",
+		".svn", ".hg", ".idea", ".vscode",
 	}
 	
 	for _, dir := range skipDirs {
