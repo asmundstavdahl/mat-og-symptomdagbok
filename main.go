@@ -212,9 +212,6 @@ func main() {
 	http.HandleFunc("/symptoms/update", updateSymptomHandler)
 	http.HandleFunc("/symptoms/delete", deleteSymptomHandler)
 	http.HandleFunc("/export", exportHandler)
-	http.HandleFunc("/report", reportPageHandler)
-	http.HandleFunc("/report/data", reportDataHandler)
-	http.HandleFunc("/report/meal-symptom-data", mealSymptomDataHandler)
 	http.HandleFunc("/crosscorr", crossCorrPageHandler)
 	http.HandleFunc("/crosscorr/data", crossCorrDataHandler)
 	http.HandleFunc("/timeseries", timeSeriesPageHandler)
@@ -229,95 +226,6 @@ func main() {
 	}
 }
 
-// reportPageHandler displays the reporting UI for filtering and visualization.
-func reportPageHandler(w http.ResponseWriter, r *http.Request) {
-	now := time.Now()
-	data := struct{ Start, End string }{
-		Start: now.AddDate(0, 0, -7).Format("2006-01-02"),
-		End:   now.Format("2006-01-02"),
-	}
-	if err := templates.ExecuteTemplate(w, "report.html", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-// reportDataHandler returns JSON data of meal and symptom counts per day in a time range.
-func reportDataHandler(w http.ResponseWriter, r *http.Request) {
-	start := r.URL.Query().Get("start")
-	end := r.URL.Query().Get("end")
-	if start == "" || end == "" {
-		http.Error(w, "start og end må spesifiseres", http.StatusBadRequest)
-		return
-	}
-	mealRows, err := db.Query(
-		"SELECT DATE(timestamp) as day, COUNT(*) "+
-			"FROM meals WHERE DATE(timestamp) BETWEEN ? AND ? "+
-			"GROUP BY day ORDER BY day", start, end)
-	if err != nil {
-		http.Error(w, "kunne ikke hente rapportdata", http.StatusInternalServerError)
-		return
-	}
-	defer mealRows.Close()
-	mealCounts := make(map[string]int)
-	for mealRows.Next() {
-		var day string
-		var count int
-		if err := mealRows.Scan(&day, &count); err != nil {
-			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
-			return
-		}
-		mealCounts[day] = count
-	}
-	sympRows, err := db.Query(
-		"SELECT DATE(timestamp) as day, COUNT(*) "+
-			"FROM symptoms WHERE DATE(timestamp) BETWEEN ? AND ? "+
-			"GROUP BY day ORDER BY day", start, end)
-	if err != nil {
-		http.Error(w, "kunne ikke hente rapportdata", http.StatusInternalServerError)
-		return
-	}
-	defer sympRows.Close()
-	sympCounts := make(map[string]int)
-	for sympRows.Next() {
-		var day string
-		var count int
-		if err := sympRows.Scan(&day, &count); err != nil {
-			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
-			return
-		}
-		sympCounts[day] = count
-	}
-	layout := "2006-01-02"
-	startDate, err := time.Parse(layout, start)
-	if err != nil {
-		http.Error(w, "ugyldig startdato", http.StatusBadRequest)
-		return
-	}
-	endDate, err := time.Parse(layout, end)
-	if err != nil {
-		http.Error(w, "ugyldig sluttdato", http.StatusBadRequest)
-		return
-	}
-	var days []string
-	var meals []int
-	var symptoms []int
-	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
-		dayStr := d.Format(layout)
-		days = append(days, dayStr)
-		meals = append(meals, mealCounts[dayStr])
-		symptoms = append(symptoms, sympCounts[dayStr])
-	}
-	result := struct {
-		Days     []string `json:"days"`
-		Meals    []int    `json:"meals"`
-		Symptoms []int    `json:"symptoms"`
-	}{days, meals, symptoms}
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(result); err != nil {
-		http.Error(w, "feil ved encoding av JSON", http.StatusInternalServerError)
-		return
-	}
-}
 
 // MealSymptomData represents the time difference between a meal and the next symptom
 type MealSymptomData struct {
