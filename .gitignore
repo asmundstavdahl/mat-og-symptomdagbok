@@ -5,3 +5,9 @@ data.db
 .tmp
 .aider*
 *.log
+# Build artifacts
+mat-og-symptomdagbok
+mosdb
+
+# Demo HTML
+preview.html
