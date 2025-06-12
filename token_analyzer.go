@@ -150,6 +150,23 @@ func shouldSkip(path string) bool {
 		return true
 	}
 	
+	// Skip hash-like filenames (common in cache directories)
+	baseName := filepath.Base(path)
+	if len(baseName) > 30 && strings.Count(baseName, "-") > 0 {
+		// Files with very long names and hyphens are likely hash files
+		return true
+	}
+	
+	// Skip files ending with hash-like suffixes
+	if strings.HasSuffix(baseName, "-a") || strings.HasSuffix(baseName, "-d") {
+		return true
+	}
+	
+	// Skip .aider cache files
+	if strings.Contains(path, ".aider.tags.cache") {
+		return true
+	}
+	
 	// Skip binary and generated files
 	skipExts := []string{
 		".exe", ".dll", ".so", ".dylib", ".bin", ".obj", ".o",
@@ -159,6 +176,7 @@ func shouldSkip(path string) bool {
 		".pptx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".gif",
 		".bmp", ".ico", ".svg", ".mp3", ".mp4", ".avi", ".mov",
 		".flv", ".wmv", ".wma", ".ogg", ".wav", ".flac",
+		".val", ".db-wal", ".db-shm", // Additional cache file types
 	}
 	
 	for _, ext := range skipExts {
@@ -170,7 +188,7 @@ func shouldSkip(path string) bool {
 	// Skip certain directories
 	skipDirs := []string{
 		"node_modules", "vendor", "dist", "build", "bin",
-		".svn", ".hg", ".idea", ".vscode",
+		".svn", ".hg", ".idea", ".vscode", ".cache",
 	}
 	
 	for _, dir := range skipDirs {
