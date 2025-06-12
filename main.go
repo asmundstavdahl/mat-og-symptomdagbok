@@ -20,6 +20,55 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// parseTimestamp parses a timestamp string in the format "2006-01-02T15:04"
+func parseTimestamp(timestampStr string) (time.Time, error) {
+	return time.Parse("2006-01-02T15:04", timestampStr)
+}
+
+// parseRFC3339 parses a timestamp string in RFC3339 format
+func parseRFC3339(timestampStr string) (time.Time, error) {
+	return time.Parse(time.RFC3339, timestampStr)
+}
+
+// parseDateOnly parses a date string in the format "2006-01-02"
+func parseDateOnly(dateStr string) (time.Time, error) {
+	return time.Parse("2006-01-02", dateStr)
+}
+
+// scanMealRow scans a database row into a Meal struct
+func scanMealRow(rows *sql.Rows) (Meal, error) {
+	var m Meal
+	var ts string
+	if err := rows.Scan(&m.ID, &m.Items, &ts, &m.Note); err != nil {
+		return m, err
+	}
+	t, err := parseRFC3339(ts)
+	if err != nil {
+		return m, err
+	}
+	m.Timestamp = t
+	m.DisplayTime = t.Format("2006-01-02 15:04")
+	m.InputTime = t.Local().Format("2006-01-02T15:04")
+	return m, nil
+}
+
+// scanSymptomRow scans a database row into a Symptom struct
+func scanSymptomRow(rows *sql.Rows) (Symptom, error) {
+	var s Symptom
+	var ts string
+	if err := rows.Scan(&s.ID, &s.Description, &ts, &s.Note); err != nil {
+		return s, err
+	}
+	t, err := parseRFC3339(ts)
+	if err != nil {
+		return s, err
+	}
+	s.Timestamp = t
+	s.DisplayTime = t.Format("2006-01-02 15:04")
+	s.InputTime = t.Local().Format("2006-01-02T15:04")
+	return s, nil
+}
+
 type templateData struct {
 	MealOptions    []string
 	SymptomOptions []string
@@ -51,14 +100,13 @@ func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "start og end må spesifiseres", http.StatusBadRequest)
 		return
 	}
-	layout := "2006-01-02"
 	// startDate and endDate are not used, so don't declare them
-	_, err := time.Parse(layout, start)
+	_, err := parseDateOnly(start)
 	if err != nil {
 		http.Error(w, "ugyldig startdato", http.StatusBadRequest)
 		return
 	}
-	_, err = time.Parse(layout, end)
+	_, err = parseDateOnly(end)
 	if err != nil {
 		http.Error(w, "ugyldig sluttdato", http.StatusBadRequest)
 		return
@@ -390,18 +438,10 @@ func getAllMeals() ([]Meal, error) {
 	defer rows.Close()
 	var meals []Meal
 	for rows.Next() {
-		var m Meal
-		var ts string
-		if err := rows.Scan(&m.ID, &m.Items, &ts, &m.Note); err != nil {
-			return nil, err
-		}
-		t, err := time.Parse(time.RFC3339, ts)
+		m, err := scanMealRow(rows)
 		if err != nil {
 			return nil, err
 		}
-		m.Timestamp = t
-		m.DisplayTime = t.Format("2006-01-02 15:04")
-		m.InputTime = t.Local().Format("2006-01-02T15:04")
 		meals = append(meals, m)
 	}
 	return meals, nil
@@ -416,18 +456,10 @@ func getAllSymptoms() ([]Symptom, error) {
 	defer rows.Close()
 	var symptoms []Symptom
 	for rows.Next() {
-		var s Symptom
-		var ts string
-		if err := rows.Scan(&s.ID, &s.Description, &ts, &s.Note); err != nil {
-			return nil, err
-		}
-		t, err := time.Parse(time.RFC3339, ts)
+		s, err := scanSymptomRow(rows)
 		if err != nil {
 			return nil, err
 		}
-		s.Timestamp = t
-		s.DisplayTime = t.Format("2006-01-02 15:04")
-		s.InputTime = t.Local().Format("2006-01-02T15:04")
 		symptoms = append(symptoms, s)
 	}
 	return symptoms, nil
@@ -466,7 +498,7 @@ func mealsHandler(w http.ResponseWriter, r *http.Request) {
 	timestampStr := r.FormValue("timestamp")
 	note := r.FormValue("note")
 
-	t, err := time.Parse("2006-01-02T15:04", timestampStr)
+	t, err := parseTimestamp(timestampStr)
 	if err != nil {
 		http.Error(w, "ugyldig tidspunkt", http.StatusBadRequest)
 		return
@@ -488,7 +520,7 @@ func symptomsHandler(w http.ResponseWriter, r *http.Request) {
 	timestampStr := r.FormValue("timestamp")
 	note := r.FormValue("note")
 
-	t, err := time.Parse("2006-01-02T15:04", timestampStr)
+	t, err := parseTimestamp(timestampStr)
 	if err != nil {
 		http.Error(w, "ugyldig tidspunkt", http.StatusBadRequest)
 		return
@@ -545,7 +577,7 @@ func updateMealHandler(w http.ResponseWriter, r *http.Request) {
 	items := r.FormValue("items")
 	timestampStr := r.FormValue("timestamp")
 	note := r.FormValue("note")
-	t, err := time.Parse("2006-01-02T15:04", timestampStr)
+	t, err := parseTimestamp(timestampStr)
 	if err != nil {
 		http.Error(w, "ugyldig tidspunkt", http.StatusBadRequest)
 		return
@@ -617,7 +649,7 @@ func updateSymptomHandler(w http.ResponseWriter, r *http.Request) {
 	description := r.FormValue("description")
 	timestampStr := r.FormValue("timestamp")
 	note := r.FormValue("note")
-	t, err := time.Parse("2006-01-02T15:04", timestampStr)
+	t, err := parseTimestamp(timestampStr)
 	if err != nil {
 		http.Error(w, "ugyldig tidspunkt", http.StatusBadRequest)
 		return
@@ -677,7 +709,7 @@ func apiMealHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "items og timestamp må oppgis", http.StatusBadRequest)
 		return
 	}
-	t, err := time.Parse("2006-01-02T15:04", input.Timestamp)
+	t, err := parseTimestamp(input.Timestamp)
 	if err != nil {
 		http.Error(w, "ugyldig timestamp-format, bruk 2006-01-02T15:04", http.StatusBadRequest)
 		return
