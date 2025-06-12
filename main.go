@@ -20,9 +20,24 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+const (
+	// Time format constants
+	timestampFormat = "2006-01-02T15:04"
+	dateFormat      = "2006-01-02"
+	displayFormat   = "2006-01-02 15:04"
+	
+	// Analysis constants
+	defaultBinSizeMinutes = 15.0
+	defaultTauMinutes     = 10.0
+	defaultMaxLagHours    = 12
+	defaultLookAheadDays  = 7
+	defaultAnalysisDays   = 14
+	defaultTimeSeriesDays = 30
+)
+
 // parseTimestamp parses a timestamp string in the format "2006-01-02T15:04"
 func parseTimestamp(timestampStr string) (time.Time, error) {
-	return time.Parse("2006-01-02T15:04", timestampStr)
+	return time.Parse(timestampFormat, timestampStr)
 }
 
 // parseRFC3339 parses a timestamp string in RFC3339 format
@@ -32,7 +47,68 @@ func parseRFC3339(timestampStr string) (time.Time, error) {
 
 // parseDateOnly parses a date string in the format "2006-01-02"
 func parseDateOnly(dateStr string) (time.Time, error) {
-	return time.Parse("2006-01-02", dateStr)
+	return time.Parse(dateFormat, dateStr)
+}
+
+// writeJSONError writes an error response as JSON
+func writeJSONError(w http.ResponseWriter, message string, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
+}
+
+// writeJSONResponse writes a successful JSON response
+func writeJSONResponse(w http.ResponseWriter, data interface{}) error {
+	w.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(w).Encode(data)
+}
+
+// queryMealTimestamps retrieves meal timestamps within a date range
+func queryMealTimestamps(start, end string) ([]time.Time, error) {
+	rows, err := db.Query(
+		"SELECT timestamp FROM meals WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var times []time.Time
+	for rows.Next() {
+		var ts string
+		if err := rows.Scan(&ts); err != nil {
+			return nil, err
+		}
+		t, err := parseRFC3339(ts)
+		if err != nil {
+			continue
+		}
+		times = append(times, t)
+	}
+	return times, nil
+}
+
+// querySymptomTimestamps retrieves symptom timestamps within a date range
+func querySymptomTimestamps(start, end string) ([]time.Time, error) {
+	rows, err := db.Query(
+		"SELECT timestamp FROM symptoms WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	
+	var times []time.Time
+	for rows.Next() {
+		var ts string
+		if err := rows.Scan(&ts); err != nil {
+			return nil, err
+		}
+		t, err := parseRFC3339(ts)
+		if err != nil {
+			continue
+		}
+		times = append(times, t)
+	}
+	return times, nil
 }
 
 // scanMealRow scans a database row into a Meal struct
@@ -47,8 +123,8 @@ func scanMealRow(rows *sql.Rows) (Meal, error) {
 		return m, err
 	}
 	m.Timestamp = t
-	m.DisplayTime = t.Format("2006-01-02 15:04")
-	m.InputTime = t.Local().Format("2006-01-02T15:04")
+	m.DisplayTime = t.Format(displayFormat)
+	m.InputTime = t.Local().Format(timestampFormat)
 	return m, nil
 }
 
@@ -64,8 +140,8 @@ func scanSymptomRow(rows *sql.Rows) (Symptom, error) {
 		return s, err
 	}
 	s.Timestamp = t
-	s.DisplayTime = t.Format("2006-01-02 15:04")
-	s.InputTime = t.Local().Format("2006-01-02T15:04")
+	s.DisplayTime = t.Format(displayFormat)
+	s.InputTime = t.Local().Format(timestampFormat)
 	return s, nil
 }
 
@@ -81,8 +157,8 @@ type templateData struct {
 func crossCorrPageHandler(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	data := struct{ Start, End string }{
-		Start: now.AddDate(0, 0, -14).Format("2006-01-02"),
-		End:   now.Format("2006-01-02"),
+		Start: now.AddDate(0, 0, -defaultAnalysisDays).Format(dateFormat),
+		End:   now.Format(dateFormat),
 	}
 	if err := templates.ExecuteTemplate(w, "crosscorr.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -113,46 +189,16 @@ func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Hent alle måltider og symptomer i perioden, sortert stigende
-	mealRows, err := db.Query(
-		"SELECT timestamp FROM meals WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
+	mealTimes, err := queryMealTimestamps(start, end)
 	if err != nil {
 		http.Error(w, "kunne ikke hente måltider", http.StatusInternalServerError)
 		return
 	}
-	defer mealRows.Close()
-	var mealTimes []time.Time
-	for mealRows.Next() {
-		var ts string
-		if err := mealRows.Scan(&ts); err != nil {
-			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
-			return
-		}
-		t, err := time.Parse(time.RFC3339, ts)
-		if err != nil {
-			continue
-		}
-		mealTimes = append(mealTimes, t)
-	}
 
-	sympRows, err := db.Query(
-		"SELECT timestamp FROM symptoms WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp ASC", start, end)
+	sympTimes, err := querySymptomTimestamps(start, end)
 	if err != nil {
 		http.Error(w, "kunne ikke hente symptomer", http.StatusInternalServerError)
 		return
-	}
-	defer sympRows.Close()
-	var sympTimes []time.Time
-	for sympRows.Next() {
-		var ts string
-		if err := sympRows.Scan(&ts); err != nil {
-			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
-			return
-		}
-		t, err := time.Parse(time.RFC3339, ts)
-		if err != nil {
-			continue
-		}
-		sympTimes = append(sympTimes, t)
 	}
 
 	// For hvert måltid, finn første symptom etterpå og regn ut antall minutter
@@ -173,7 +219,7 @@ func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Bygg histogram: grupper forsinkelse i 15-minutters intervaller
-	binSize := 15.0 // minutter
+	binSize := defaultBinSizeMinutes // minutter
 	hist := make(map[int]int)
 	for _, d := range delays {
 		bin := int(math.Floor(d / binSize))
@@ -336,7 +382,7 @@ func mealSymptomDataHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "ugyldig sluttdato", http.StatusBadRequest)
 		return
 	}
-	extendedEnd := endDate.AddDate(0, 0, 7).Format("2006-01-02") // Look 7 days ahead
+	extendedEnd := endDate.AddDate(0, 0, defaultLookAheadDays).Format(dateFormat) // Look ahead for symptoms
 
 	symptomRows, err := db.Query(
 		"SELECT id, description, timestamp FROM symptoms WHERE DATE(timestamp) BETWEEN ? AND ? ORDER BY timestamp",
@@ -379,7 +425,7 @@ func mealSymptomDataHandler(w http.ResponseWriter, r *http.Request) {
 		data := MealSymptomData{
 			MealID:        meal.ID,
 			MealItems:     meal.Items,
-			MealTimestamp: meal.Timestamp.Format("2006-01-02 15:04"),
+			MealTimestamp: meal.Timestamp.Format(displayFormat),
 		}
 
 		// Find the next symptom after this meal
@@ -773,8 +819,8 @@ func exportHandler(w http.ResponseWriter, r *http.Request) {
 func timeSeriesPageHandler(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	data := struct{ Start, End string }{
-		Start: now.AddDate(0, 0, -30).Format("2006-01-02"),
-		End:   now.Format("2006-01-02"),
+		Start: now.AddDate(0, 0, -defaultTimeSeriesDays).Format(dateFormat),
+		End:   now.Format(dateFormat),
 	}
 	if err := templates.ExecuteTemplate(w, "timeseries.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -863,7 +909,7 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "start og end må spesifiseres", http.StatusBadRequest)
 		return
 	}
-	tau := 10.0 // default 10 minutter
+	tau := defaultTauMinutes // default tau in minutes
 	if tauStr != "" {
 		if parsed, err := strconv.ParseFloat(tauStr, 64); err == nil && parsed > 0 {
 			tau = parsed
@@ -1004,7 +1050,7 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Krysskorrelasjon mellom hver måltidstype og symptomtype
-	maxLag := 12 * 60 // 12 timer, i minutter
+	maxLag := defaultMaxLagHours * 60 // convert hours to minutes
 	type CrossCorrResult struct {
 		MealType    string    `json:"meal_type"`
 		SymptomType string    `json:"symptom_type"`
