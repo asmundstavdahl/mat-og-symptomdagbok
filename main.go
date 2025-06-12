@@ -215,7 +215,6 @@ func main() {
 	http.HandleFunc("/report", reportPageHandler)
 	http.HandleFunc("/report/data", reportDataHandler)
 	http.HandleFunc("/report/meal-symptom-data", mealSymptomDataHandler)
-	http.HandleFunc("/meal-symptom-analysis", mealSymptomAnalysisHandler)
 	http.HandleFunc("/crosscorr", crossCorrPageHandler)
 	http.HandleFunc("/crosscorr/data", crossCorrDataHandler)
 	http.HandleFunc("/timeseries", timeSeriesPageHandler)
@@ -526,36 +525,6 @@ func getAllSymptoms() ([]Symptom, error) {
 	return symptoms, nil
 }
 
-func mealSymptomAnalysisHandler(w http.ResponseWriter, r *http.Request) {
-	// Get date range from query parameters or use defaults
-	startDate := r.URL.Query().Get("start")
-	endDate := r.URL.Query().Get("end")
-
-	if startDate == "" {
-		startDate = time.Now().AddDate(0, 0, -7).Format("2006-01-02")
-	}
-	if endDate == "" {
-		endDate = time.Now().Format("2006-01-02")
-	}
-
-	data := struct {
-		StartDate string
-		EndDate   string
-	}{
-		StartDate: startDate,
-		EndDate:   endDate,
-	}
-
-	tmpl, err := template.ParseFiles("templates/meal_symptom_analysis.html")
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if err := tmpl.Execute(w, data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	meals, err := getAllMeals()
