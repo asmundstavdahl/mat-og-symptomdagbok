@@ -37,7 +37,8 @@ func scanMealRow(rows *sql.Rows) (Meal, error) {
 		return m, err
 	}
 	m.Timestamp = t
-	m.DisplayTime = t.Format(displayFormat)
+	// DisplayTime is now set in main.go with a UTC string for client-side conversion
+	// m.DisplayTime = t.Format(displayFormat) // This line is no longer needed
 	m.InputTime = t.Local().Format(timestampFormat)
 	return m, nil
 }
@@ -54,7 +55,8 @@ func scanSymptomRow(rows *sql.Rows) (Symptom, error) {
 		return s, err
 	}
 	s.Timestamp = t
-	s.DisplayTime = t.Format(displayFormat)
+	// DisplayTime is now set in main.go with a UTC string for client-side conversion
+	// s.DisplayTime = t.Format(displayFormat) // This line is no longer needed
 	s.InputTime = t.Local().Format(timestampFormat)
 	return s, nil
 }
