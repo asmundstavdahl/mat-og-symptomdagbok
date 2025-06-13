@@ -25,7 +25,7 @@ const (
 	timestampFormat = "2006-01-02T15:04"
 	dateFormat      = "2006-01-02"
 	displayFormat   = "2006-01-02 15:04"
-	
+
 	// Analysis constants
 	defaultBinSizeMinutes = 15.0
 	defaultTauMinutes     = 10.0
@@ -71,7 +71,7 @@ func queryMealTimestamps(start, end string) ([]time.Time, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var times []time.Time
 	for rows.Next() {
 		var ts string
@@ -95,7 +95,7 @@ func querySymptomTimestamps(start, end string) ([]time.Time, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var times []time.Time
 	for rows.Next() {
 		var ts string
@@ -320,7 +320,6 @@ func main() {
 	}
 }
 
-
 // MealSymptomData represents the time difference between a meal and the next symptom
 type MealSymptomData struct {
 	MealID          int      `json:"meal_id"`
@@ -510,7 +509,6 @@ func getAllSymptoms() ([]Symptom, error) {
 	}
 	return symptoms, nil
 }
-
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	meals, err := getAllMeals()

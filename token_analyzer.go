@@ -94,12 +94,12 @@ func main() {
 	fmt.Println(strings.Repeat("-", 90))
 
 	for _, file := range files {
-		fmt.Printf("%-50s | %-10d | %-10d | %s\n", 
-			truncatePath(file.Path, 50), 
-			file.Size, 
+		fmt.Printf("%-50s | %-10d | %-10d | %s\n",
+			truncatePath(file.Path, 50),
+			file.Size,
 			file.TokenEst,
 			file.Extension)
-		
+
 		totalSize += file.Size
 		totalTokens += file.TokenEst
 	}
@@ -116,7 +116,7 @@ func main() {
 
 	// Convert map to slice for sorting
 	type ExtInfo struct {
-		Ext   string
+		Ext    string
 		Tokens int64
 	}
 	var extInfos []ExtInfo
@@ -144,29 +144,29 @@ func main() {
 func shouldSkip(path string) bool {
 	// Skip binary files and certain directories
 	lowerPath := strings.ToLower(path)
-	
+
 	// Skip .git directories completely
 	if strings.Contains(lowerPath, "/.git") || strings.HasPrefix(lowerPath, ".git") {
 		return true
 	}
-	
+
 	// Skip hash-like filenames (common in cache directories)
 	baseName := filepath.Base(path)
 	if len(baseName) > 30 && strings.Count(baseName, "-") > 0 {
 		// Files with very long names and hyphens are likely hash files
 		return true
 	}
-	
+
 	// Skip files ending with hash-like suffixes
 	if strings.HasSuffix(baseName, "-a") || strings.HasSuffix(baseName, "-d") {
 		return true
 	}
-	
+
 	// Skip .aider cache files
 	if strings.Contains(path, ".aider.tags.cache") {
 		return true
 	}
-	
+
 	// Skip binary and generated files
 	skipExts := []string{
 		".exe", ".dll", ".so", ".dylib", ".bin", ".obj", ".o",
@@ -178,25 +178,25 @@ func shouldSkip(path string) bool {
 		".flv", ".wmv", ".wma", ".ogg", ".wav", ".flac",
 		".val", ".db-wal", ".db-shm", // Additional cache file types
 	}
-	
+
 	for _, ext := range skipExts {
 		if strings.HasSuffix(lowerPath, ext) {
 			return true
 		}
 	}
-	
+
 	// Skip certain directories
 	skipDirs := []string{
 		"node_modules", "vendor", "dist", "build", "bin",
 		".svn", ".hg", ".idea", ".vscode", ".cache",
 	}
-	
+
 	for _, dir := range skipDirs {
 		if strings.Contains(lowerPath, "/"+dir+"/") || strings.HasSuffix(lowerPath, "/"+dir) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -205,16 +205,16 @@ func truncatePath(path string, maxLen int) string {
 	if len(path) <= maxLen {
 		return path
 	}
-	
+
 	// Try to keep the filename and some of the path
 	fileName := filepath.Base(path)
 	dirName := filepath.Dir(path)
-	
+
 	if len(fileName) >= maxLen-3 {
 		// If filename itself is too long, truncate it
 		return "..." + fileName[len(fileName)-(maxLen-3):]
 	}
-	
+
 	// Keep the filename and truncate the directory part
 	return "..." + dirName[len(dirName)-(maxLen-len(fileName)-3):] + "/" + fileName
 }
