@@ -419,42 +419,6 @@ func mealSymptomDataHandler(w http.ResponseWriter, r *http.Request) {
 
 // (See migrate.go)
 
-// getAllMeals retrieves all meals from the database.
-func getAllMeals() ([]Meal, error) {
-	rows, err := db.Query("SELECT id, items, timestamp, note FROM meals ORDER BY timestamp DESC")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var meals []Meal
-	for rows.Next() {
-		m, err := scanMealRow(rows)
-		if err != nil {
-			return nil, err
-		}
-		meals = append(meals, m)
-	}
-	return meals, nil
-}
-
-// getAllSymptoms retrieves all symptoms from the database.
-func getAllSymptoms() ([]Symptom, error) {
-	rows, err := db.Query("SELECT id, description, timestamp, note FROM symptoms ORDER BY timestamp DESC")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var symptoms []Symptom
-	for rows.Next() {
-		s, err := scanSymptomRow(rows)
-		if err != nil {
-			return nil, err
-		}
-		symptoms = append(symptoms, s)
-	}
-	return symptoms, nil
-}
-
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	meals, err := getAllMeals()
 	if err != nil {
