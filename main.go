@@ -721,19 +721,6 @@ func deleteSymptomHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-/*
-JSON-schema for måltidsregistrering (POST /api/meal):
-
-{
-  "items": "Brød, Melk",
-  "timestamp": "2024-06-10T12:34",
-  "note": "Valgfri kommentar"
-}
-
-Alle felter er påkrevd unntatt "note".
-"timestamp" må være på formatet "2006-01-02T15:04".
-*/
-
 func apiMealHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "kun POST er støttet", http.StatusMethodNotAllowed)
