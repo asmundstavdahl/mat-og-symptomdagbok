@@ -165,10 +165,8 @@ func crossCorrPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-/*
-crossCorrDataHandler returns JSON data for a plot showing the distribution of
-tiden (i dager) fra hvert måltid til neste symptom etterpå i valgt periode.
-*/
+// crossCorrDataHandler returns JSON data for a plot showing the distribution of
+// tiden (i dager) fra hvert måltid til neste symptom etterpå i valgt periode.
 func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 	start := r.URL.Query().Get("start")
 	end := r.URL.Query().Get("end")
@@ -176,7 +174,6 @@ func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "start og end må spesifiseres", http.StatusBadRequest)
 		return
 	}
-	// startDate and endDate are not used, so don't declare them
 	_, err := parseDateOnly(start)
 	if err != nil {
 		http.Error(w, "ugyldig startdato", http.StatusBadRequest)
@@ -830,13 +827,11 @@ type DetailedTimeSeriesData struct {
 	SymptomSeriesByType map[string][]TimeSeriesPoint `json:"symptom_series_by_type"`
 }
 
-/*
-Førsteordens lavpassfilter for tidsserier.
-y[n] = alpha * x[n] + (1-alpha) * y[n-1]
-alpha = dt / (tau + dt)
-tau: tidskonstant i minutter
-dt: tidsoppløsning i minutter (her alltid 1)
-*/
+// lowPassFilter applies a first-order low-pass filter to a time series.
+// y[n] = alpha * x[n] + (1-alpha) * y[n-1]
+// alpha = dt / (tau + dt)
+// tau: time constant in minutes
+// dt: time resolution in minutes (here always 1)
 func lowPassFilter(series []int, tau float64) []float64 {
 	if tau <= 0 {
 		// Returner originalen som float64
@@ -858,10 +853,8 @@ func lowPassFilter(series []int, tau float64) []float64 {
 	return out
 }
 
-/*
-Krysskorrelasjon mellom to binære tidsserier (måltid/symptom).
-Returnerer en slice med korrelasjonsverdier for lag fra -maxLag til +maxLag.
-*/
+// crossCorrelation computes the cross-correlation between two binary time series (meal/symptom).
+// Returns a slice of correlation values for lags from -maxLag to +maxLag.
 func crossCorrelation(x, y []float64, maxLag int) ([]int, []float64) {
 	n := len(x)
 	cc := make([]float64, 2*maxLag+1)
