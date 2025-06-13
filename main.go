@@ -26,7 +26,7 @@ const (
 
 	// Analysis constants
 	defaultBinSizeMinutes = 15.0
-	defaultTauMinutes     = 10.0
+	defaultTauMinutes     = 20.0
 	defaultMaxLagHours    = 12
 	defaultLookAheadDays  = 7
 	defaultAnalysisDays   = 14
