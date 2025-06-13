@@ -6,13 +6,6 @@ import (
 	"time"
 )
 
-// parseTimestamp parses a timestamp string in the format "2006-01-02T15:04".
-// This function is no longer used directly for parsing form inputs in main.go
-// because time.ParseInLocation is used there to handle local time correctly.
-func parseTimestamp(timestampStr string) (time.Time, error) {
-	return time.Parse(timestampFormat, timestampStr)
-}
-
 // parseRFC3339 parses a timestamp string in RFC3339 format.
 // It assumes the input string is in UTC and returns a time.Time in UTC.
 func parseRFC3339(timestampStr string) (time.Time, error) {
