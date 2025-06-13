@@ -21,7 +21,7 @@
 <div class="container">
     <h1>⏱️ Tidsserier for Hendelser</h1>
     <p>Visualisering av måltider og symptomer som tidsfunksjoner. Y-aksen viser 1 når hendelsen skjer og 0 ellers.</p>
-    
+
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">📅 Velg tidsperiode</h2>
@@ -58,15 +58,15 @@ function updateCharts() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
     const tau = document.getElementById('tau').value;
-    
+
     if (!startDate || !endDate) {
         alert('Vennligst velg både start- og sluttdato');
         return;
     }
-    
+
     // Show loading state
     document.getElementById('combined-chart').innerHTML = '<div style="text-align: center; padding: 50px;">Laster data...</div>';
-    
+
     fetch(`/timeseries/data?start=${startDate}&end=${endDate}&tau=${tau}`)
         .then(response => response.json())
         .then(data => {
@@ -82,9 +82,9 @@ function updateCharts() {
                     type: 'scatter',
                     mode: 'lines',
                     name: `${entry.meal_type} → ${entry.symptom_type}`,
-                    line: { 
-                        color: mealColors[combinedColorIndex % mealColors.length], 
-                        width: 2 
+                    line: {
+                        color: mealColors[combinedColorIndex % mealColors.length],
+                        width: 2
                     }
                 });
                 combinedColorIndex++;

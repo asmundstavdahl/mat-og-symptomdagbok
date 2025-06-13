@@ -18,7 +18,7 @@
 
 <div class="container">
     <h1>✏️ Rediger symptom</h1>
-    
+
     <div class="quick-actions">
         <a href="/" class="btn btn-outline">🏠 Tilbake til hovedside</a>
     </div>
@@ -29,7 +29,7 @@
         </div>
         <form action="/symptoms/update" method="POST">
             <input type="hidden" name="id" value="{{ .Symptom.ID }}">
-            
+
             <div class="form-group">
                 <label for="description">Symptom</label>
                 <input type="text" id="description" name="description" list="symptom-options" value="{{ .Symptom.Description }}" required placeholder="Beskriv symptomet...">
@@ -39,17 +39,17 @@
                     {{- end }}
                 </datalist>
             </div>
-            
+
             <div class="form-group">
                 <label for="timestamp">Tidspunkt</label>
                 <input type="datetime-local" id="timestamp" name="timestamp" value="{{ .Symptom.InputTime }}" required>
             </div>
-            
+
             <div class="form-group">
                 <label for="note">Notat (valgfritt)</label>
                 <textarea id="note" name="note" placeholder="Legg til notater om symptomet...">{{ .Symptom.Note }}</textarea>
             </div>
-            
+
             <div class="action-buttons">
                 <button type="submit" class="btn btn-success">💾 Oppdater symptom</button>
                 <a href="/" class="btn btn-secondary">❌ Avbryt</a>

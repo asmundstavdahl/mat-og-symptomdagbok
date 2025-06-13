@@ -19,7 +19,7 @@
 
 <div class="container">
     <h1>📈 Måltid til Symptom Analyse</h1>
-    
+
     <div class="quick-actions">
         <a href="/" class="btn btn-outline">🏠 Tilbake til hovedside</a>
         <a href="/report" class="btn btn-secondary">📊 Vis rapport</a>
@@ -34,12 +34,12 @@
                 <label for="start-date">Startdato</label>
                 <input type="date" id="start-date" value="{{ .StartDate }}">
             </div>
-            
+
             <div class="form-group">
                 <label for="end-date">Sluttdato</label>
                 <input type="date" id="end-date" value="{{ .EndDate }}">
             </div>
-            
+
             <div class="form-group">
                 <button onclick="updateChart()" class="btn btn-primary">🔄 Oppdater analyse</button>
             </div>
@@ -79,7 +79,7 @@ let mealSymptomChart;
 function updateChart() {
     const startDate = document.getElementById('start-date').value;
     const endDate = document.getElementById('end-date').value;
-    
+
     fetch(`/report/meal-symptom-data?start=${startDate}&end=${endDate}`)
         .then(response => response.json())
         .then(data => {
@@ -93,15 +93,15 @@ function updateChart() {
 
 function renderMealSymptomChart(data) {
     const ctx = document.getElementById('mealSymptomChart').getContext('2d');
-    
+
     if (mealSymptomChart) {
         mealSymptomChart.destroy();
     }
-    
+
     const labels = data.map(item => `${item.meal_items} (${item.meal_timestamp})`);
     const timeDiffs = data.map(item => item.time_diff_hours || 0);
     const colors = data.map(item => item.next_symptom_id ? '#87CEEB' : '#FF6B6B');
-    
+
     mealSymptomChart = new Chart(ctx, {
         type: 'bar',
         data: {
@@ -147,7 +147,7 @@ function renderMealSymptomChart(data) {
 function renderMealSymptomTable(data) {
     const tbody = document.querySelector('#mealSymptomTable tbody');
     tbody.innerHTML = '';
-    
+
     data.forEach(item => {
         const row = tbody.insertRow();
         row.insertCell(0).textContent = item.meal_items;
