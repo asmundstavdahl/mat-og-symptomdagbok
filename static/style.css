@@ -53,16 +53,19 @@ nav {
 nav .container {
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: 1rem;
+  padding: 0.5rem 0;
 }
 
 nav a {
   color: var(--text-secondary);
   text-decoration: none;
   font-weight: 500;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem;
   border-radius: var(--border-radius);
   transition: all 0.2s ease;
+  font-size: 0.9rem;
+  white-space: nowrap;
 }
 
 nav a:hover {
@@ -423,6 +426,16 @@ tr:last-child td {
   .container {
     padding: 0 1rem;
   }
+  
+  nav .container {
+    gap: 0.5rem;
+    justify-content: space-between;
+  }
+  
+  nav a {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
 
   h1 {
     font-size: 2rem;
@@ -466,6 +479,11 @@ tr:last-child td {
 }
 
 @media (max-width: 480px) {
+  nav a {
+    padding: 0.5rem;
+    font-size: 0.75rem;
+  }
+  
   .btn {
     padding: 0.5rem 1rem;
     font-size: 0.75rem;
