@@ -48,6 +48,18 @@
 
 <script src="/static/vendor/plotly.min.js"></script>
 <script>
+window.plotlyLoadCheck = setInterval(function() {
+    if(typeof Plotly !== 'undefined') {
+        clearInterval(window.plotlyLoadCheck);
+    } else {
+        console.error('Plotly failed to load from /static/vendor/plotly.min.js');
+        document.getElementById('combined-chart').innerHTML = 
+            '<div class="error">Feil: Kunne ikke laste diagram-bibliotek. Kontroller nettverkstilkobling og prøv på nytt.</div>';
+        clearInterval(window.plotlyLoadCheck);
+    }
+}, 1000);
+</script>
+<script>
 // Color palettes for different types
 const mealColors = ['#2E8B57', '#FF6347', '#4169E1', '#FFD700', '#8A2BE2', '#FF1493', '#00CED1', '#32CD32', '#FF4500', '#9932CC'];
 const symptomColors = ['#DC143C', '#FF69B4', '#8B0000', '#B22222', '#CD5C5C', '#F08080', '#FA8072', '#E9967A', '#FFA07A', '#FF6347'];
@@ -71,8 +83,7 @@ function updateCharts() {
             // 3. Kombinert: alle par
             document.getElementById('combined-chart').innerHTML = '';
             if (typeof Plotly === 'undefined') {
-                document.getElementById('combined-chart').innerHTML = '<div style="text-align: center; padding: 50px; color: red;">Feil: Plotly-biblioteket er ikke lastet.</div>';
-                console.error("Plotly library is not defined. Check /static/vendor/plotly.min.js path and server logs.");
+                console.error("Plotly library is not available");
                 return;
             }
 
