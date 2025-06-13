@@ -46,18 +46,14 @@
     </div>
 </div>
 
-<script src="/static/vendor/plotly.min.js"></script>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <script>
-window.plotlyLoadCheck = setInterval(function() {
-    if(typeof Plotly !== 'undefined') {
-        clearInterval(window.plotlyLoadCheck);
-    } else {
-        console.error('Plotly failed to load from /static/vendor/plotly.min.js');
-        document.getElementById('combined-chart').innerHTML = 
-            '<div class="error">Feil: Kunne ikke laste diagram-bibliotek. Kontroller nettverkstilkobling og prøv på nytt.</div>';
-        clearInterval(window.plotlyLoadCheck);
-    }
-}, 1000);
+// Check if Plotly loaded successfully
+if (typeof Plotly === 'undefined') {
+    document.getElementById('combined-chart').innerHTML = 
+        '<div class="error">Feil: Kunne ikke laste diagram-bibliotek. Vennligst sjekk internettilkoblingen din.</div>';
+    console.error('Failed to load Plotly from CDN');
+}
 </script>
 <script>
 // Color palettes for different types
@@ -83,7 +79,8 @@ function updateCharts() {
             // 3. Kombinert: alle par
             document.getElementById('combined-chart').innerHTML = '';
             if (typeof Plotly === 'undefined') {
-                console.error("Plotly library is not available");
+                document.getElementById('combined-chart').innerHTML = 
+                    '<div class="error">Diagram-biblioteket er ikke tilgjengelig. Last siden på nytt.</div>';
                 return;
             }
 
