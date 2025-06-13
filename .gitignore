@@ -5,6 +5,8 @@ data.db
 .tmp
 .aider*
 *.log
+# Swap files
+*.swp
 # Build artifacts
 mat-og-symptomdagbok
 mosdb
