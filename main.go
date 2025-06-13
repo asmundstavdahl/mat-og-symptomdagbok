@@ -661,12 +661,13 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create maps for quick lookup of event times by type (rounded to minute)
+	// Use UTC format for consistency
+	const minuteKeyFormat = "2006-01-02T15:04Z" // Explicitly UTC
 	mealMinutesByType := make(map[string]map[string]bool)
 	for mealType, times := range mealsByType {
 		mealMinutesByType[mealType] = make(map[string]bool)
 		for _, t := range times {
-			localTime := t.Local()
-			minuteKey := localTime.Format("2006-01-02 15:04")
+			minuteKey := t.UTC().Format(minuteKeyFormat) // Use UTC time for key
 			mealMinutesByType[mealType][minuteKey] = true
 		}
 	}
@@ -675,8 +676,7 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 	for symptomType, times := range symptomsByType {
 		symptomMinutesByType[symptomType] = make(map[string]bool)
 		for _, t := range times {
-			localTime := t.Local()
-			minuteKey := localTime.Format("2006-01-02 15:04")
+			minuteKey := t.UTC().Format(minuteKeyFormat) // Use UTC time for key
 			symptomMinutesByType[symptomType][minuteKey] = true
 		}
 	}
@@ -685,37 +685,35 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 	mealRawSeries := make(map[string][]int)
 	symptomRawSeries := make(map[string][]int)
 
-	current := startDate
-	for !current.After(endDate) {
-		for hour := 0; hour < 24; hour++ {
-			for minute := 0; minute < 60; minute++ {
-				timePoint := time.Date(current.Year(), current.Month(), current.Day(), hour, minute, 0, 0, current.Location())
-				timeStr := timePoint.Format("2006-01-02 15:04")
+	// Iterate minute by minute in UTC
+	current := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, time.UTC)
+	endUTC := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 23, 59, 0, 0, time.UTC)
 
-				for mealType := range mealsByType {
-					if mealRawSeries[mealType] == nil {
-						mealRawSeries[mealType] = []int{}
-					}
-					value := 0
-					if mealMinutesByType[mealType][timeStr] {
-						value = 1
-					}
-					mealRawSeries[mealType] = append(mealRawSeries[mealType], value)
-				}
+	for !current.After(endUTC) {
+		timeStr := current.Format(minuteKeyFormat) // Format in UTC
 
-				for symptomType := range symptomsByType {
-					if symptomRawSeries[symptomType] == nil {
-						symptomRawSeries[symptomType] = []int{}
-					}
-					value := 0
-					if symptomMinutesByType[symptomType][timeStr] {
-						value = 1
-					}
-					symptomRawSeries[symptomType] = append(symptomRawSeries[symptomType], value)
-				}
+		for mealType := range mealsByType {
+			if mealRawSeries[mealType] == nil {
+				mealRawSeries[mealType] = []int{}
 			}
+			value := 0
+			if mealMinutesByType[mealType][timeStr] {
+				value = 1
+			}
+			mealRawSeries[mealType] = append(mealRawSeries[mealType], value)
 		}
-		current = current.AddDate(0, 0, 1)
+
+		for symptomType := range symptomsByType {
+			if symptomRawSeries[symptomType] == nil {
+				symptomRawSeries[symptomType] = []int{}
+			}
+			value := 0
+			if symptomMinutesByType[symptomType][timeStr] {
+				value = 1
+			}
+			symptomRawSeries[symptomType] = append(symptomRawSeries[symptomType], value)
+		}
+		current = current.Add(time.Minute)
 	}
 
 	// Filtrer seriene
