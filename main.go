@@ -8,10 +8,8 @@ import (
 	"fmt"
 	"html/template"
 	"log"
-	"math"
 	"net/http"
 	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -27,10 +25,9 @@ const (
 	// Analysis constants
 	defaultBinSizeMinutes = 15.0
 	defaultTauMinutes     = 20.0
-	defaultMaxLagHours    = 12
 	defaultLookAheadDays  = 7
-	defaultAnalysisDays   = 14
 	defaultTimeSeriesDays = 30
+	defaultMaxLagHours    = 12 // Added this constant
 )
 
 // queryMealTimestamps retrieves meal timestamps within a date range
@@ -89,97 +86,6 @@ type templateData struct {
 	Symptoms       []Symptom
 }
 
-// crossCorrPageHandler displays the cross-correlation UI.
-func crossCorrPageHandler(w http.ResponseWriter, r *http.Request) {
-	now := time.Now()
-	data := struct{ Start, End string }{
-		Start: now.AddDate(0, 0, -defaultAnalysisDays).Format(dateFormat),
-		End:   now.Format(dateFormat),
-	}
-	if err := templates.ExecuteTemplate(w, "crosscorr.html", data); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-// crossCorrDataHandler returns JSON data for a plot showing the distribution of
-// tiden (i dager) fra hvert måltid til neste symptom etterpå i valgt periode.
-func crossCorrDataHandler(w http.ResponseWriter, r *http.Request) {
-	start := r.URL.Query().Get("start")
-	end := r.URL.Query().Get("end")
-	if start == "" || end == "" {
-		http.Error(w, "start og end må spesifiseres", http.StatusBadRequest)
-		return
-	}
-	_, err := parseDateOnly(start)
-	if err != nil {
-		http.Error(w, "ugyldig startdato", http.StatusBadRequest)
-		return
-	}
-	_, err = parseDateOnly(end)
-	if err != nil {
-		http.Error(w, "ugyldig sluttdato", http.StatusBadRequest)
-		return
-	}
-
-	// Hent alle måltider og symptomer i perioden, sortert stigende
-	mealTimes, err := queryMealTimestamps(start, end)
-	if err != nil {
-		http.Error(w, "kunne ikke hente måltider", http.StatusInternalServerError)
-		return
-	}
-
-	sympTimes, err := querySymptomTimestamps(start, end)
-	if err != nil {
-		http.Error(w, "kunne ikke hente symptomer", http.StatusInternalServerError)
-		return
-	}
-
-	// For hvert måltid, finn første symptom etterpå og regn ut antall minutter
-	var delays []float64
-	for _, meal := range mealTimes {
-		minDelay := -1.0
-		for _, symp := range sympTimes {
-			if symp.After(meal) {
-				delay := symp.Sub(meal).Minutes()
-				if minDelay < 0 || delay < minDelay {
-					minDelay = delay
-				}
-			}
-		}
-		if minDelay >= 0 {
-			delays = append(delays, minDelay)
-		}
-	}
-
-	// Bygg histogram: grupper forsinkelse i 15-minutters intervaller
-	binSize := defaultBinSizeMinutes // minutter
-	hist := make(map[int]int)
-	for _, d := range delays {
-		bin := int(math.Floor(d / binSize))
-		hist[bin]++
-	}
-	// Sorter bins
-	var bins []int
-	for k := range hist {
-		bins = append(bins, k)
-	}
-	sort.Ints(bins)
-	var counts []int
-	for _, b := range bins {
-		counts = append(counts, hist[b])
-	}
-
-	// Returner som JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(struct {
-		Bins   []int `json:"bins"`
-		Counts []int `json:"counts"`
-	}{
-		Bins:   bins,
-		Counts: counts,
-	})
-}
-
 var (
 	templates *template.Template
 	db        *sql.DB
@@ -219,8 +125,6 @@ func main() {
 	http.HandleFunc("/symptoms/update", updateSymptomHandler)
 	http.HandleFunc("/symptoms/delete", deleteSymptomHandler)
 	http.HandleFunc("/export", exportHandler)
-	http.HandleFunc("/crosscorr", crossCorrPageHandler)
-	http.HandleFunc("/crosscorr/data", crossCorrDataHandler)
 	http.HandleFunc("/timeseries", timeSeriesPageHandler)
 	http.HandleFunc("/timeseries/data", timeSeriesDataHandler)
 
