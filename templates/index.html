@@ -103,7 +103,7 @@
                 <tbody>
                     {{- range .Meals }}
                     <tr>
-                        <td>{{ .DisplayTime }}</td>
+                        <td class="utc-timestamp" data-utc-timestamp="{{ .DisplayTime }}"></td>
                         <td><strong>{{ .Items }}</strong></td>
                         <td>{{ if .Note }}{{ .Note }}{{ else }}<em>Ingen notat</em>{{ end }}</td>
                         <td>
@@ -146,7 +146,7 @@
                 <tbody>
                     {{- range .Symptoms }}
                     <tr>
-                        <td>{{ .DisplayTime }}</td>
+                        <td class="utc-timestamp" data-utc-timestamp="{{ .DisplayTime }}"></td>
                         <td><strong>{{ .Description }}</strong></td>
                         <td>{{ if .Note }}{{ .Note }}{{ else }}<em>Ingen notat</em>{{ end }}</td>
                         <td>
@@ -171,5 +171,25 @@
         {{ end }}
     </div>
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const utcTimestampElements = document.querySelectorAll('.utc-timestamp');
+
+        utcTimestampElements.forEach(element => {
+            const utcTimestamp = element.dataset.utcTimestamp;
+            if (utcTimestamp) {
+                const date = new Date(utcTimestamp);
+                // Format for display: YYYY-MM-DD HH:MM
+                const year = date.getFullYear();
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const day = date.getDate().toString().padStart(2, '0');
+                const hours = date.getHours().toString().padStart(2, '0');
+                const minutes = date.getMinutes().toString().padStart(2, '0');
+
+                element.textContent = `${year}-${month}-${day} ${hours}:${minutes}`;
+            }
+        });
+    });
+</script>
 </body>
 </html>

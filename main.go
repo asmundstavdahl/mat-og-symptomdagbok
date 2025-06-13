@@ -372,11 +372,21 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "kunne ikke hente måltider", http.StatusInternalServerError)
 		return
 	}
+	// Set DisplayTime for meals to UTC string for client-side conversion
+	for i := range meals {
+		meals[i].DisplayTime = meals[i].Timestamp.Format("2006-01-02T15:04:00Z")
+	}
+
 	symptoms, err := getAllSymptoms()
 	if err != nil {
 		http.Error(w, "kunne ikke hente symptomer", http.StatusInternalServerError)
 		return
 	}
+	// Set DisplayTime for symptoms to UTC string for client-side conversion
+	for i := range symptoms {
+		symptoms[i].DisplayTime = symptoms[i].Timestamp.Format("2006-01-02T15:04:00Z")
+	}
+
 	data := templateData{
 		MealOptions:    []string{"Brød", "Melk", "Ost"},
 		SymptomOptions: []string{"Hodepine", "Kvalme", "Tretthet"},
