@@ -363,7 +363,7 @@ func mealSymptomDataHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "feil ved scanning av måltider", http.StatusInternalServerError)
 			return
 		}
-		t, err := time.Parse(time.RFC3339, ts)
+		t, err := parseRFC3339(ts)
 		if err != nil {
 			http.Error(w, "ugyldig tidspunkt for måltid", http.StatusInternalServerError)
 			return
@@ -406,7 +406,7 @@ func mealSymptomDataHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "feil ved scanning av symptomer", http.StatusInternalServerError)
 			return
 		}
-		t, err := time.Parse(time.RFC3339, ts)
+		t, err := parseRFC3339(ts)
 		if err != nil {
 			http.Error(w, "ugyldig tidspunkt for symptom", http.StatusInternalServerError)
 			return
@@ -588,7 +588,7 @@ func editMealHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "måltid ikke funnet", http.StatusNotFound)
 		return
 	}
-	t, err := time.Parse(time.RFC3339, ts)
+	t, err := parseRFC3339(ts)
 	if err != nil {
 		http.Error(w, "ugyldig tidspunkt", http.StatusInternalServerError)
 		return
@@ -660,7 +660,7 @@ func editSymptomHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "symptom ikke funnet", http.StatusNotFound)
 		return
 	}
-	t, err := time.Parse(time.RFC3339, ts)
+	t, err := parseRFC3339(ts)
 	if err != nil {
 		http.Error(w, "ugyldig tidspunkt", http.StatusInternalServerError)
 		return
@@ -922,7 +922,7 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
 			return
 		}
-		t, err := time.Parse(time.RFC3339, ts)
+		t, err := parseRFC3339(ts)
 		if err != nil {
 			continue
 		}
@@ -952,7 +952,7 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "feil ved scanning", http.StatusInternalServerError)
 			return
 		}
-		t, err := time.Parse(time.RFC3339, ts)
+		t, err := parseRFC3339(ts)
 		if err != nil {
 			continue
 		}
