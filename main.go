@@ -230,7 +230,7 @@ func main() {
 	// API-endpoint for registrering av måltid
 	http.HandleFunc("/api/meal", apiMealHandler)
 
-	log.Printf("Server starting on :%d\n", *port)
+	log.Printf("Server starting on :%d", *port)
 	if err := http.ListenAndServe(fmt.Sprintf(":%d", *port), nil); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
@@ -398,12 +398,13 @@ func mealsHandler(w http.ResponseWriter, r *http.Request) {
 	timestampStr := r.FormValue("timestamp")
 	note := r.FormValue("note")
 
-	t, err := parseTimestamp(timestampStr)
+	// Parse the timestamp string as local time, then convert to UTC for storage
+	t, err := time.ParseInLocation(timestampFormat, timestampStr, time.Local)
 	if err != nil {
 		http.Error(w, "ugyldig tidspunkt", http.StatusBadRequest)
 		return
 	}
-	_, err = db.Exec("INSERT INTO meals (items, timestamp, note) VALUES (?, ?, ?)", items, t.Format(time.RFC3339), note)
+	_, err = db.Exec("INSERT INTO meals (items, timestamp, note) VALUES (?, ?, ?)", items, t.UTC().Format(time.RFC3339), note)
 	if err != nil {
 		http.Error(w, "feil ved lagring", http.StatusInternalServerError)
 		return
@@ -420,12 +421,13 @@ func symptomsHandler(w http.ResponseWriter, r *http.Request) {
 	timestampStr := r.FormValue("timestamp")
 	note := r.FormValue("note")
 
-	t, err := parseTimestamp(timestampStr)
+	// Parse the timestamp string as local time, then convert to UTC for storage
+	t, err := time.ParseInLocation(timestampFormat, timestampStr, time.Local)
 	if err != nil {
 		http.Error(w, "ugyldig tidspunkt", http.StatusBadRequest)
 		return
 	}
-	_, err = db.Exec("INSERT INTO symptoms (description, timestamp, note) VALUES (?, ?, ?)", description, t.Format(time.RFC3339), note)
+	_, err = db.Exec("INSERT INTO symptoms (description, timestamp, note) VALUES (?, ?, ?)", description, t.UTC().Format(time.RFC3339), note)
 	if err != nil {
 		http.Error(w, "feil ved lagring", http.StatusInternalServerError)
 		return
@@ -447,14 +449,14 @@ func editMealHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "måltid ikke funnet", http.StatusNotFound)
 		return
 	}
-	t, err := parseRFC3339(ts)
+	t, err := parseRFC3339(ts) // This time is in UTC
 	if err != nil {
 		http.Error(w, "ugyldig tidspunkt", http.StatusInternalServerError)
 		return
 	}
 	m.Timestamp = t
-	m.DisplayTime = t.Format("2006-01-02 15:04")
-	m.InputTime = t.Local().Format("2006-01-02T15:04")
+	m.DisplayTime = t.Local().Format("2006-01-02 15:04") // Display in local time
+	m.InputTime = t.Local().Format("2006-01-02T15:04")   // Input field in local time
 	data := struct {
 		MealOptions []string
 		Meal        Meal
@@ -477,12 +479,13 @@ func updateMealHandler(w http.ResponseWriter, r *http.Request) {
 	items := r.FormValue("items")
 	timestampStr := r.FormValue("timestamp")
 	note := r.FormValue("note")
-	t, err := parseTimestamp(timestampStr)
+	// Parse the timestamp string as local time, then convert to UTC for storage
+	t, err := time.ParseInLocation(timestampFormat, timestampStr, time.Local)
 	if err != nil {
 		http.Error(w, "ugyldig tidspunkt", http.StatusBadRequest)
 		return
 	}
-	_, err = db.Exec("UPDATE meals SET items = ?, timestamp = ?, note = ? WHERE id = ?", items, t.Format(time.RFC3339), note, id)
+	_, err = db.Exec("UPDATE meals SET items = ?, timestamp = ?, note = ? WHERE id = ?", items, t.UTC().Format(time.RFC3339), note, id)
 	if err != nil {
 		http.Error(w, "feil ved oppdatering", http.StatusInternalServerError)
 		return
@@ -519,14 +522,14 @@ func editSymptomHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "symptom ikke funnet", http.StatusNotFound)
 		return
 	}
-	t, err := parseRFC3339(ts)
+	t, err := parseRFC3339(ts) // This time is in UTC
 	if err != nil {
 		http.Error(w, "ugyldig tidspunkt", http.StatusInternalServerError)
 		return
 	}
 	s.Timestamp = t
-	s.DisplayTime = t.Format("2006-01-02 15:04")
-	s.InputTime = t.Local().Format("2006-01-02T15:04")
+	s.DisplayTime = t.Local().Format("2006-01-02 15:04") // Display in local time
+	s.InputTime = t.Local().Format("2006-01-02T15:04")   // Input field in local time
 	data := struct {
 		SymptomOptions []string
 		Symptom        Symptom
@@ -549,12 +552,13 @@ func updateSymptomHandler(w http.ResponseWriter, r *http.Request) {
 	description := r.FormValue("description")
 	timestampStr := r.FormValue("timestamp")
 	note := r.FormValue("note")
-	t, err := parseTimestamp(timestampStr)
+	// Parse the timestamp string as local time, then convert to UTC for storage
+	t, err := time.ParseInLocation(timestampFormat, timestampStr, time.Local)
 	if err != nil {
 		http.Error(w, "ugyldig tidspunkt", http.StatusBadRequest)
 		return
 	}
-	_, err = db.Exec("UPDATE symptoms SET description = ?, timestamp = ?, note = ? WHERE id = ?", description, t.Format(time.RFC3339), note, id)
+	_, err = db.Exec("UPDATE symptoms SET description = ?, timestamp = ?, note = ? WHERE id = ?", description, t.UTC().Format(time.RFC3339), note, id)
 	if err != nil {
 		http.Error(w, "feil ved oppdatering", http.StatusInternalServerError)
 		return
@@ -596,12 +600,13 @@ func apiMealHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "items og timestamp må oppgis", http.StatusBadRequest)
 		return
 	}
-	t, err := parseTimestamp(input.Timestamp)
+	// Parse the timestamp string as local time, then convert to UTC for storage
+	t, err := time.ParseInLocation(timestampFormat, input.Timestamp, time.Local)
 	if err != nil {
 		http.Error(w, "ugyldig timestamp-format, bruk 2006-01-02T15:04", http.StatusBadRequest)
 		return
 	}
-	res, err := db.Exec("INSERT INTO meals (items, timestamp, note) VALUES (?, ?, ?)", input.Items, t.Format(time.RFC3339), input.Note)
+	res, err := db.Exec("INSERT INTO meals (items, timestamp, note) VALUES (?, ?, ?)", input.Items, t.UTC().Format(time.RFC3339), input.Note)
 	if err != nil {
 		http.Error(w, "feil ved lagring", http.StatusInternalServerError)
 		return
