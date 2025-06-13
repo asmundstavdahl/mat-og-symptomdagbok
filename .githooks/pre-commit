@@ -2,7 +2,11 @@
 set -euo pipefail
 
 echo "Running pre-commit hooks..."
-
+# Use project-local directories (build cache and tmp) to avoid permission issues
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+export GOCACHE="$PROJECT_ROOT/.tmp/go-build"
+export TMPDIR="$PROJECT_ROOT/.tmp"
+mkdir -p "$GOCACHE" "$TMPDIR"
 # Check for whitespace errors in staged files
 if ! git diff-index --check --cached HEAD --; then
     echo "Whitespace errors detected. Please fix them before committing."
