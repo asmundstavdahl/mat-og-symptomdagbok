@@ -1,10 +1,5 @@
 package main
 
-import (
-	"math"
-	"sort"
-)
-
 // lowPassFilter applies a first-order low-pass filter to a time series.
 // y[n] = alpha * x[n] + (1-alpha) * y[n-1]
 // alpha = dt / (tau + dt)

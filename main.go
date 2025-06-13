@@ -8,9 +8,10 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"math"
 	"net/http"
-	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -81,40 +82,6 @@ func querySymptomTimestamps(start, end string) ([]time.Time, error) {
 		times = append(times, t)
 	}
 	return times, nil
-}
-
-// scanMealRow scans a database row into a Meal struct
-func scanMealRow(rows *sql.Rows) (Meal, error) {
-	var m Meal
-	var ts string
-	if err := rows.Scan(&m.ID, &m.Items, &ts, &m.Note); err != nil {
-		return m, err
-	}
-	t, err := parseRFC3339(ts)
-	if err != nil {
-		return m, err
-	}
-	m.Timestamp = t
-	m.DisplayTime = t.Format(displayFormat)
-	m.InputTime = t.Local().Format(timestampFormat)
-	return m, nil
-}
-
-// scanSymptomRow scans a database row into a Symptom struct
-func scanSymptomRow(rows *sql.Rows) (Symptom, error) {
-	var s Symptom
-	var ts string
-	if err := rows.Scan(&s.ID, &s.Description, &ts, &s.Note); err != nil {
-		return s, err
-	}
-	t, err := parseRFC3339(ts)
-	if err != nil {
-		return s, err
-	}
-	s.Timestamp = t
-	s.DisplayTime = t.Format(displayFormat)
-	s.InputTime = t.Local().Format(timestampFormat)
-	return s, nil
 }
 
 type templateData struct {
@@ -220,26 +187,6 @@ var (
 	templates *template.Template
 	db        *sql.DB
 )
-
-// Meal represents a recorded meal entry.
-type Meal struct {
-	ID          int       `json:"id"`
-	Items       string    `json:"items"`
-	Timestamp   time.Time `json:"timestamp"`
-	Note        string    `json:"note"`
-	DisplayTime string    `json:"-"`
-	InputTime   string    `json:"-"`
-}
-
-// Symptom represents a recorded symptom entry.
-type Symptom struct {
-	ID          int       `json:"id"`
-	Description string    `json:"description"`
-	Timestamp   time.Time `json:"timestamp"`
-	Note        string    `json:"note"`
-	DisplayTime string    `json:"-"`
-	InputTime   string    `json:"-"`
-}
 
 func main() {
 	port := flag.Int("port", 8080, "Port to run the server on")

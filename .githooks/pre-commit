@@ -24,9 +24,9 @@ if [[ -n "$unformatted" ]]; then
     exit 1
 fi
 
-# Run go vet (disabled due to known code issues)
-# echo "Running go vet..."
-# go vet ./...
+# Run go vet
+echo "Running go vet..."
+go vet ./...
 
 # Ensure go.mod and go.sum are tidy
 echo "Checking go.mod and go.sum..."
@@ -37,16 +37,16 @@ if ! git diff --quiet go.mod go.sum; then
     exit 1
 fi
 
-# Build step disabled due to known build issues (TMPDIR definition retained)
-# echo "Running go build..."
+# Build the project
+echo "Running go build..."
 TMPDIR="$(git rev-parse --show-toplevel)/.tmp"
 export TMPDIR
 mkdir -p "$TMPDIR"
-# go build ./...
+go build ./...
 
-## Run go test (disabled due to known test failures)
-# echo "Running go test..."
-# go test ./...
+# Run tests
+echo "Running go test..."
+go test ./...
 
 echo "Pre-commit checks passed."
 exit 0
