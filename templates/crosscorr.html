@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Krysskorrelasjon - Mat- og Symptombok</title>
     <link rel="stylesheet" href="/static/style.css">
-    <script src="/static/plotly.min.js"></script>
 </head>
 <body>
 <nav>
@@ -57,7 +56,8 @@
         <p><em>Dette kan hjelpe deg med å identifisere mønstre i når symptomer oppstår etter måltider.</em></p>
     </div>
 </div>
-    <script>
+<script src="/static/vendor/plotly.min.js"></script>
+<script>
     document.getElementById('rangeForm').addEventListener('submit', function(e) {
         e.preventDefault();
         updatePlot();
@@ -74,6 +74,12 @@
                 return resp.json();
             })
             .then(data => {
+                if (typeof Plotly === 'undefined') {
+                    document.getElementById('plot').innerHTML = '<div style="text-align: center; padding: 50px; color: red;">Feil: Plotly-biblioteket er ikke lastet.</div>';
+                    console.error("Plotly library is not defined. Check /static/vendor/plotly.min.js path and server logs.");
+                    return;
+                }
+
                 if (!data || !Array.isArray(data.bins) || !Array.isArray(data.counts) || data.bins.length === 0) {
                     document.getElementById('plot').innerHTML = "<em>Ingen data for valgt periode.</em>";
                     return;
@@ -102,6 +108,6 @@
     window.addEventListener('DOMContentLoaded', function() {
         updatePlot();
     });
-    </script>
+</script>
 </body>
 </html>

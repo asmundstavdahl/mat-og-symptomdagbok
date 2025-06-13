@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tidsserier - Mat- og Symptombok</title>
     <link rel="stylesheet" href="/static/style.css">
-    <script src="/static/plotly.min.js"></script>
 </head>
 <body>
 <nav>
@@ -47,6 +46,7 @@
     </div>
 </div>
 
+<script src="/static/vendor/plotly.min.js"></script>
 <script>
 // Color palettes for different types
 const mealColors = ['#2E8B57', '#FF6347', '#4169E1', '#FFD700', '#8A2BE2', '#FF1493', '#00CED1', '#32CD32', '#FF4500', '#9932CC'];
@@ -70,6 +70,12 @@ function updateCharts() {
         .then(data => {
             // 3. Kombinert: alle par
             document.getElementById('combined-chart').innerHTML = '';
+            if (typeof Plotly === 'undefined') {
+                document.getElementById('combined-chart').innerHTML = '<div style="text-align: center; padding: 50px; color: red;">Feil: Plotly-biblioteket er ikke lastet.</div>';
+                console.error("Plotly library is not defined. Check /static/vendor/plotly.min.js path and server logs.");
+                return;
+            }
+
             const combinedTraces = [];
             let combinedColorIndex = 0;
             for (const entry of data) {
