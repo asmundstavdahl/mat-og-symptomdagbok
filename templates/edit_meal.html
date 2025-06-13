@@ -29,6 +29,7 @@
         </div>
         <form action="/meals/update" method="POST">
             <input type="hidden" name="id" value="{{ .Meal.ID }}">
+            <input type="hidden" id="meal-utc-timestamp" value="{{ .Meal.InputTime }}">
 
             <div class="form-group">
                 <label for="items">Matvarer</label>
@@ -42,7 +43,7 @@
 
             <div class="form-group">
                 <label for="timestamp">Tidspunkt</label>
-                <input type="datetime-local" id="timestamp" name="timestamp" value="{{ .Meal.InputTime }}" required>
+                <input type="datetime-local" id="timestamp" name="timestamp" required>
             </div>
 
             <div class="form-group">
@@ -57,5 +58,26 @@
         </form>
     </div>
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const utcTimestamp = document.getElementById('meal-utc-timestamp').value;
+        const localDatetimeInput = document.getElementById('timestamp');
+
+        if (utcTimestamp && localDatetimeInput) {
+            // Parse the UTC timestamp string into a Date object
+            const date = new Date(utcTimestamp);
+
+            // Format the Date object to "YYYY-MM-DDTHH:MM" for datetime-local input
+            // This will automatically convert it to the user's local time
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            const hours = date.getHours().toString().padStart(2, '0');
+            const minutes = date.getMinutes().toString().padStart(2, '0');
+
+            localDatetimeInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+    });
+</script>
 </body>
 </html>

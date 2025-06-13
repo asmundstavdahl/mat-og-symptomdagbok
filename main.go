@@ -456,7 +456,8 @@ func editMealHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	m.Timestamp = t
 	m.DisplayTime = t.Local().Format("2006-01-02 15:04") // Display in local time
-	m.InputTime = t.Local().Format("2006-01-02T15:04")   // Input field in local time
+	// InputTime will now be a UTC string that JS can parse and convert to local
+	m.InputTime = t.Format("2006-01-02T15:04:00Z") // Explicitly mark as UTC for JS parsing
 	data := struct {
 		MealOptions []string
 		Meal        Meal
@@ -529,7 +530,8 @@ func editSymptomHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Timestamp = t
 	s.DisplayTime = t.Local().Format("2006-01-02 15:04") // Display in local time
-	s.InputTime = t.Local().Format("2006-01-02T15:04")   // Input field in local time
+	// InputTime will now be a UTC string that JS can parse and convert to local
+	s.InputTime = t.Format("2006-01-02T15:04:00Z") // Explicitly mark as UTC for JS parsing
 	data := struct {
 		SymptomOptions []string
 		Symptom        Symptom
