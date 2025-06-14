@@ -1,5 +1,7 @@
 package main
 
+import "math"
+
 // lowPassFilter applies a first-order low-pass filter to a time series.
 // y[n] = alpha * x[n] + (1-alpha) * y[n-1]
 // alpha = dt / (tau + dt)
@@ -32,18 +34,21 @@ func crossCorrelation(x, y []float64, maxLag int) ([]int, []float64) {
 	cc := make([]float64, 2*maxLag+1)
 	lags := make([]int, 2*maxLag+1)
 	for lag := -maxLag; lag <= maxLag; lag++ {
-		var sum float64
+		var sumX, sumY, sumXY float64
 		var count int
 		for i := 0; i < n; i++ {
 			j := i + lag
 			if j < 0 || j >= n {
 				continue
 			}
-			sum += x[i] * y[j]
+			sumX += x[i] * x[i]
+			sumY += y[j] * y[j]
+			sumXY += x[i] * y[j]
 			count++
 		}
-		if count > 0 {
-			cc[lag+maxLag] = sum / float64(count)
+		if count > 0 && sumX > 0 && sumY > 0 {
+			// Normalized cross-correlation (Pearson correlation coefficient)
+			cc[lag+maxLag] = sumXY / (math.Sqrt(sumX) * math.Sqrt(sumY))
 		}
 		lags[lag+maxLag] = lag
 	}
