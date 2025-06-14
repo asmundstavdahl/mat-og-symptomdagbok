@@ -643,6 +643,17 @@ func timeSeriesDataHandler(w http.ResponseWriter, r *http.Request) {
 		for symptomType, symptomSeries := range symptomFiltered {
 			// Krysskorrelasjon
 			lags, corr := crossCorrelation(mealSeries, symptomSeries, maxLag)
+			// If corr is all <0.0000006, skip
+			allSmall := true
+			for _, v := range corr {
+				if v > 0.0000006 {
+					allSmall = false
+					break
+				}
+			}
+			if allSmall {
+				continue
+			}
 			results = append(results, CrossCorrResult{
 				MealType:    mealType,
 				SymptomType: symptomType,
