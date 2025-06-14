@@ -4,5 +4,9 @@ set -e
 
 echo "Running post-commit hook..."
 
+echo "Building executable…"
 go build -o mosdb
+echo -n "Stopping existing process…"
+pkill mosdb && echo "" || echo " no existing process."
+echo "Spawning server…"
 ./mosdb -port 34708 &
