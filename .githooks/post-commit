@@ -1,3 +1,8 @@
 #!/bin/bash
+
+set -e
+
 echo "Running post-commit hook..."
-go build -o mosdb &> build.log && ./mosdb -port 34708 &> server.log && cat build.log server.log
+
+go build -o mosdb
+./mosdb -port 34708 &
